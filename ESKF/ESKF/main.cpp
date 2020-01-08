@@ -7,6 +7,9 @@ using namespace Eigen;
 int main()
 {
 
+    ESKF error;
+
+
     /*
  
     MatrixXd a(3, 3);
