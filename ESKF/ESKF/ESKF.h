@@ -40,8 +40,8 @@ public:
 
 	// IMU and ESKF implementation
 
-	ESKF();
-	ESKF(Matrix3d Racc, Matrix3d RaccBias, Matrix3d Rgyro, Matrix3d RgyroBias, double pgyroBias, double paccBias, Matrix3d Sa, Matrix3d Sg, Matrix3d Sdvl, Matrix3d Sinc);
+	//ESKF();
+	ESKF(Matrix3d Racc, Matrix3d RaccBias, Matrix3d Rgyro, Matrix3d RgyroBias, double pgyroBias, double paccBias, Matrix3d Sa, Matrix3d Sg, Matrix3d Sdvl, Matrix3d Sinc, double SpressureZ);
 
 	VectorXd predictNominal(VectorXd xnominal, Vector3d accRectifiedMeasurements, Vector3d gyroRectifiedmeasurements, double Ts);
 	MatrixXd Aerr(VectorXd xnominal, Vector3d accRectifiedMeasurements, Vector3d gyroRectifiedmeasurements);
@@ -73,7 +73,7 @@ private:
 	Matrix3d Rgyro;		// Gyro measurements covariance (3x3)
 	Matrix3d RgyroBias; // Gyro bias driving noise covariance (3x3)
 
-	MatrixXd D;   
+	MatrixXd D;		    
 
 
 	// Correction matricies
