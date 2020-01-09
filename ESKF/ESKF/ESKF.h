@@ -2,28 +2,38 @@
 
 #include <iostream>
 #include <Eigen/Dense>
+#include <math.h>
 
 using namespace Eigen;
 
+constexpr double GRAVITY{ 9.80665 };
+constexpr int ROWSOFPOSITION{ 3 };
+constexpr int ROWSOFVELOCITY{ 3 };
+constexpr int ROWSOFQUATERNIONS{ 4 };
+constexpr int ROWSOFACCBIAS{ 3 };
+constexpr int ROWSOFGYROBIAS{ 3 };
+constexpr int NumberOfNominalStates{ 16 };
+constexpr int NumberOfErrorStates{ 15 };
+
 struct AdandGQGD {
 	MatrixXd Ad;
-	MatrixXd GQGD;
+	Matrix<double,NumberOfErrorStates,NumberOfErrorStates> GQGD; // (15x15)
 };
 
 struct StatePredictions {
-	MatrixXd xNominalPrediction; // ()
-	MatrixXd pPrediction;		 // ()
+	Matrix<double,NumberOfNominalStates,1> xNominalPrediction;				 // (16x1)
+	Matrix<double,NumberOfErrorStates,NumberOfErrorStates> pPrediction;		 // (15x15)
 };
 
 struct InjectionStates {
-	VectorXd xInject;  // (16x1) 
-	MatrixXd pInject;  // (15x15)
+	Matrix<double, NumberOfNominalStates,1> xInject;				  // (16x1) 
+	Matrix<double, NumberOfErrorStates,NumberOfErrorStates> pInject;  // (15x15)
 };
 
 struct InnovationPressureStates {
-	MatrixXd pressureInnovation;		   // (1x1)
-	MatrixXd pressureInnovationCovariance; // (1x1)
-	MatrixXd pressureH;					   // (1x15)
+	Matrix<double,1,1> pressureInnovation;				// (1x1)
+	Matrix<double,1,1> pressureInnovationCovariance;	// (1x1)
+	Matrix<double,1,NumberOfErrorStates> pressureH;		// (1x15)
 };
 
 struct InnovationDVLStates {
@@ -65,7 +75,7 @@ private:
 	double pgyroBias;
 	double paccBias;
 
-	const Vector3d gravity = Vector3d::Constant(0, 0, 9.80665);
+	const Vector3d gravity{ 0,0,GRAVITY };
 
 	
 	Matrix3d Racc;		// Acceleration measurements covariance (3x3)
@@ -73,7 +83,7 @@ private:
 	Matrix3d Rgyro;		// Gyro measurements covariance (3x3)
 	Matrix3d RgyroBias; // Gyro bias driving noise covariance (3x3)
 
-	MatrixXd D;		    
+	MatrixXd D; // Diagonal block matrix with measurement covariances
 
 
 	// Correction matricies
@@ -83,6 +93,16 @@ private:
 	Matrix3d Sinc; // Inclinometer
 	double SpressureZ; // Pressure
 
+	
+
 };
 
 
+/*
+
+	Matrix<double, 4, 4> hei;
+
+
+
+
+*/
