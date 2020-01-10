@@ -21,7 +21,7 @@ MatrixXd blkdiag(const MatrixBase<Derived>& a, int count)
 
 MatrixXd blk3x3Diag(const Matrix3d& matrixA, const Matrix3d& matrixB, const Matrix3d& matrixC, const Matrix3d& matrixD);
 
-Matrix3d crossProductMatrix(Vector3d n);
+Matrix3d crossProductMatrix(const Vector3d& n);
 Vector4d quaternionHamiltonProduct(VectorXd quatLeft, VectorXd quatRight);
 
 

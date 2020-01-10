@@ -1,7 +1,7 @@
 #include"common.h"
 
 
-Matrix3d crossProductMatrix(Vector3d n)
+Matrix3d crossProductMatrix(const Vector3d& n)
 {
 	Matrix3d skewMatrix = Matrix3d::Zero();
 
@@ -14,16 +14,21 @@ Matrix3d crossProductMatrix(Vector3d n)
 
 Vector4d quaternionHamiltonProduct(VectorXd quatLeft, VectorXd quatRight)
 {
+	//int realPartIndex = 0;
+
+
 	Vector4d quatProduct = Vector4d::Zero();
 
-	if (quatLeft.count() == 3) // Assume pure quaternion
+	
+
+	if (quatLeft.size() == 3) // Assume pure quaternion
 	{
 		quatLeft << 0,
 			quatLeft(0),
 			quatLeft(1),
 			quatLeft(2);
 	}
-	if (quatRight.count() == 3)  // Assume pure quaternion
+	if (quatRight.size() == 3)  // Assume pure quaternion
 	{
 		quatRight << 0,
 			quatRight(0),
@@ -31,12 +36,12 @@ Vector4d quaternionHamiltonProduct(VectorXd quatLeft, VectorXd quatRight)
 			quatRight(2);
 
 	}
-
 	
-
+	
+	quatProduct << quatLeft(0) * quatRight(0) - quatLeft.segment(1, 3).transpose() * quatRight.segment(1, 3),
+				   quatRight(0)* quatLeft.segment(1, 3) + quatLeft(0) * quatRight.segment(1, 3) + crossProductMatrix(quatLeft.segment(1, 3)) * quatRight.segment(1, 3);
+					
 	return quatProduct;
-
-
 
 }
 
