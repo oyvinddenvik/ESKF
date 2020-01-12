@@ -16,9 +16,9 @@ Vector4d quaternionHamiltonProduct(VectorXd quatLeft, VectorXd quatRight)
 {
 	//int realPartIndex = 0;
 
-
 	Vector4d quatProduct = Vector4d::Zero();
-
+	Vector3d imaginaryPartOfLeftQuaternion = Vector3d::Zero();
+	Vector3d imaginaryPartOfRightQuaternion = Vector3d::Zero();
 	
 
 	if (quatLeft.size() == 3) // Assume pure quaternion
@@ -34,12 +34,14 @@ Vector4d quaternionHamiltonProduct(VectorXd quatLeft, VectorXd quatRight)
 			quatRight(0),
 			quatRight(1),
 			quatRight(2);
-
 	}
 	
+	imaginaryPartOfLeftQuaternion = quatLeft.block<3, 1>(1, 0);
+	imaginaryPartOfRightQuaternion = quatRight.block<3, 1>(1, 0);
+
 	
-	quatProduct << quatLeft(0) * quatRight(0) - quatLeft.segment(1, 3).transpose() * quatRight.segment(1, 3),
-				   quatRight(0)* quatLeft.segment(1, 3) + quatLeft(0) * quatRight.segment(1, 3) + crossProductMatrix(quatLeft.segment(1, 3)) * quatRight.segment(1, 3);
+	quatProduct << quatLeft(0) * quatRight(0) - imaginaryPartOfLeftQuaternion.transpose() * imaginaryPartOfRightQuaternion,
+				   quatRight(0)* imaginaryPartOfLeftQuaternion + quatLeft(0) * imaginaryPartOfRightQuaternion + crossProductMatrix(imaginaryPartOfLeftQuaternion) * imaginaryPartOfRightQuaternion;
 					
 	return quatProduct;
 
@@ -81,6 +83,27 @@ MatrixXd blk3x3Diag(const Matrix3d& matrixA, const Matrix3d& matrixB, const Matr
 	return bdm;
 }
 
+Matrix3d quaternion2Rotationmatrix(const Vector4d& quaternion)
+{
+	
+	Matrix3d RotationMatrix = Matrix3d::Zero();
+	Matrix3d S = Matrix3d::Zero();
+	Vector3d imaginaryPart = Vector3d::Zero();
+	double realPart{ 0 };
+
+
+	realPart = quaternion(0);
+	imaginaryPart = quaternion.segment(1, quaternion.size() - 1);
+	
+
+	S = crossProductMatrix(imaginaryPart);
+	//std::cout << S << std::endl;
+	RotationMatrix = MatrixXd::Identity(3, 3) + (2 * realPart * S) + (2 * S * S);
+	//std::cout << RotationMatrix<< std::endl;
+
+	return RotationMatrix;
+
+}
 
 
 

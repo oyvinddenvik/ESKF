@@ -23,6 +23,6 @@ MatrixXd blk3x3Diag(const Matrix3d& matrixA, const Matrix3d& matrixB, const Matr
 
 Matrix3d crossProductMatrix(const Vector3d& n);
 Vector4d quaternionHamiltonProduct(VectorXd quatLeft, VectorXd quatRight);
-
+Matrix3d quaternion2Rotationmatrix(const Vector4d& quaternion);
 
 
