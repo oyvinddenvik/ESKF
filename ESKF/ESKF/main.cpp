@@ -2,33 +2,79 @@
 #include"ESKF.h"
 #include <Eigen/Core>
 
+
 using namespace Eigen;
+
+struct structTest {
+    Matrix<double, 3, 3> Ad;
+    Matrix<double, 3, 3> Bd;
+};
+
+structTest returnMultipleMatricies()
+{
+    structTest testMatrix;
+
+    testMatrix.Ad.setZero();
+    testMatrix.Bd.setZero();
+
+    testMatrix.Ad << 1, 2, 3, 4, 5, 6, 7, 8, 9;
+    testMatrix.Bd << 1, 2, 3, 4, 5, 6, 7, 8, 9;
+
+    return testMatrix;
+}
+
+
 
 
 int main()
 {
     int i = 3;
 
-    std::cout << sqrt(i) << std::endl;
+    structTest heisann;
+
+    heisann = returnMultipleMatricies();
+
+    std::cout << heisann.Ad << std::endl;
+
+    //std::cout << sqrt(i) << std::endl;
     Vector4d quatProduct;
     Vector4d quatRight;
     VectorXd quatLeft(4);
     quatLeft << 32, 1, 10, 11;
     quatRight << 0.5, 3, 6 , 10;
-    VectorXd quatTest(4);
+    VectorXd quatTest(8);
     VectorXd quatTest3(4);
-    quatTest << 10, 20, 30, 40;
+    //quatTest << 10, 20, 30, 40;
     quatTest3 << 5, 6, 7, 8;
     quatProduct.setZero();
-    MatrixXd rotationMatrix;
+    MatrixXd rotationMatrix(3,3);
+    rotationMatrix << 1,2,3,4,5,6,7,8,9;
+    Matrix3d identityMatrix = Matrix3d::Identity();
 
+    Vector3d testingVector;
+    testingVector << 1, 2, 3;
+    quatTest << quatLeft,
+                quatRight;
+
+    Vector4d holipop = Vector4d::Zero();
+    holipop << 1,
+               testingVector / 2.0;
+
+    
+    
+
+    std::cout << holipop<< std::endl;
+
+    //std::cout << exp(5) << std::endl;
+
+    //std::cout << quatLeft * 2.0 << std::endl;
     //std::cout << quatLeft.sum() << std::endl;
     
-    std::cout << quatLeft.array().square().sum() << std::endl;
+    //std::cout << quatLeft.array().square().sum() << std::endl;
     //std::cout << quatLeft.block<3,1>(13,0) << std::endl;
 
-    rotationMatrix = quaternion2Rotationmatrix(quatLeft);
-    std::cout << rotationMatrix << std::endl;
+    //rotationMatrix = quaternion2Rotationmatrix(quatLeft);
+    //std::cout << rotationMatrix << std::endl;
 
     //quatProduct = quaternionHamiltonProduct(quatLeft, quatRight);
 

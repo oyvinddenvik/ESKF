@@ -3,6 +3,7 @@
 #include <iostream>
 #include <Eigen/Dense>
 #include <math.h>
+#include <unsupported/Eigen/MatrixFunctions>
 
 using namespace Eigen;
 
@@ -16,8 +17,8 @@ constexpr int NumberOfNominalStates{ 16 };
 constexpr int NumberOfErrorStates{ 15 };
 
 struct AdandGQGD {
-	MatrixXd Ad;
-	Matrix<double,NumberOfErrorStates,NumberOfErrorStates> GQGD; // (15x15)
+	Matrix<double, 15, 15> Ad;
+	Matrix<double, 15, 15> GQGD;
 };
 
 struct StatePredictions {
@@ -97,12 +98,3 @@ private:
 
 };
 
-
-/*
-
-	Matrix<double, 4, 4> hei;
-
-
-
-
-*/
