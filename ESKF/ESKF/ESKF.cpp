@@ -248,16 +248,28 @@ InjectionStates ESKF::inject(VectorXd xnominal, VectorXd deltaX, MatrixXd P)
 
 InnovationPressureStates ESKF::innovationPressureZ(VectorXd xnominal, MatrixXd P, double zPressureZpos, MatrixXd RpressureZ)
 {
+	// Initilize
 	InnovationPressureStates pressureStates;
+	Matrix<double, 16, 15> X_deltaX;
 	Matrix<double, 1, 16> Hx;
+	Matrix<double, 1, 2> zero1x2Matrix;
+	Matrix<double, 1, 13> zero1x13Matrix;
+	MatrixXd Q_deltaT(4, 3);
+	MatrixXd identity6x6Matrix(6, 6);
+	double zValue{ 1 };
 	double eta{ 0 };
 	double eps_1{ 0 };
 	double eps_2{ 0 };
 	double eps_3{ 0 };
 	pressureStates.pressureH.setZero();
-	pressureStates.pressureInnovation.setZero();
+	pressureStates.pressureInnovation = 0;
 	pressureStates.pressureInnovationCovariance.setZero();
 	Hx.setZero();
+	zero1x2Matrix.setZero();
+	zero1x13Matrix.setZero();
+	X_deltaX.setZero();
+	identity6x6Matrix.setIdentity();
+	Q_deltaT.setZero();
 
 
 	eta = xnominal(6);
@@ -265,10 +277,61 @@ InnovationPressureStates ESKF::innovationPressureZ(VectorXd xnominal, MatrixXd P
 	eps_2 = xnominal(8);
 	eps_3 = xnominal(9);
 
+	// Measurement Matrix
+	Hx << zero1x2Matrix,
+		  zValue,
+		  zero1x13Matrix;
+
+	X_deltaX.block<6, 6>(0, 0) = identity6x6Matrix;
+	X_deltaX.block<6, 6>(10, 9) = identity6x6Matrix;
+	Q_deltaT << -1.0 * eps_1, -1.0 * eps_2, -1.0 * eps_3,
+				eta, -1.0 * eps_3, eps_2,
+				eps_3, eta, -1.0 * eps_1,
+				-1.0 * eps_2, eps_1, eta;
+	X_deltaX.block<4, 3>(6, 6) = Q_deltaT;
+
+	pressureStates.pressureH = Hx * X_deltaX;
+	pressureStates.pressureInnovation = zPressureZpos - xnominal(2);
+	pressureStates.pressureInnovationCovariance = (pressureStates.pressureH * P * pressureStates.pressureH.transpose()) + RpressureZ;
+
+
+
+
+		  
 	return pressureStates;
 
+}
+
+InjectionStates ESKF::updatePressureZ(VectorXd xnominal, MatrixXd P, double zPressureZpos, MatrixXd RpressureZ)
+{
+	InjectionStates injections;
+	InnovationPressureStates pressureStates;
+	MatrixXd identity15x15(15,15);
+	MatrixXd kalmanGain(15, 1);
+	MatrixXd deltaX(15, 1);
+	MatrixXd pUpdate(15, 15);
+
+	identity15x15.setZero();
+	pressureStates.pressureH.setZero();
+	pressureStates.pressureInnovationCovariance.setZero();
+	pressureStates.pressureInnovation = 0;
+	injections.xInject.setZero();
+	injections.pInject.setZero();
+	kalmanGain.setZero();
+	deltaX.setZero();
+	pUpdate.setZero();
+
+	pressureStates = innovationPressureZ(xnominal, P, zPressureZpos, RpressureZ);
+	
+
+	// ESKF Update step
+	kalmanGain = P * pressureStates.pressureH.transpose() * pressureStates.pressureInnovationCovariance.inverse();
+	deltaX = kalmanGain * pressureStates.pressureInnovation;
+	pUpdate = (identity15x15 - (kalmanGain * pressureStates.pressureH)) * P;
+	injections = inject(xnominal, deltaX, pUpdate);
 
 
-
+	return injections;
 
 }
+

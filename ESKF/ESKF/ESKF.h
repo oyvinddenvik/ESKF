@@ -32,7 +32,8 @@ struct InjectionStates {
 };
 
 struct InnovationPressureStates {
-	Matrix<double,1,1> pressureInnovation;				// (1x1)
+	//Matrix<double,1,1> pressureInnovation;				// (1x1)
+	double pressureInnovation;
 	Matrix<double,1,1> pressureInnovationCovariance;	// (1x1)
 	Matrix<double,1,NumberOfErrorStates> pressureH;		// (1x15)
 };
