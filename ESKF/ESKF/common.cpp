@@ -105,6 +105,31 @@ Matrix3d quaternion2Rotationmatrix(const Vector4d& quaternion)
 
 }
 
+MatrixXd jacobianFdOfDVL(const VectorXd& fun,const VectorXd& x, const double& step, const Vector3d& velWorld )
+{
+	Vector4d xPerturbed = Vector4d::Zero();
+	Vector3d fPerturbed = Vector3d::Zero();
+	int numberOfRowsOfQuaternion{ 0 };
+	int numberOfRowsOfF{ 0 };
+
+	numberOfRowsOfQuaternion = x.rows();
+	numberOfRowsOfF = fun.rows();
+
+	MatrixXd jacobianMatrix(numberOfRowsOfF, numberOfRowsOfQuaternion);
+
+	
+	for (int i = 0; i < numberOfRowsOfQuaternion; ++i)
+	{
+		xPerturbed = x;
+		xPerturbed(i) = xPerturbed(i) + step;
+		fPerturbed = quaternion2Rotationmatrix(xPerturbed) * velWorld;
+		jacobianMatrix.col(i) = (fPerturbed - fun) / step; // Check if error
+	}
+
+	
+	return jacobianMatrix;
+
+}
 
 
 

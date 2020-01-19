@@ -2,8 +2,8 @@
 #include "common.h"
 
 
-ESKF::ESKF(Matrix3d Racc, Matrix3d RaccBias, Matrix3d Rgyro, Matrix3d RgyroBias, double pgyroBias, double paccBias, Matrix3d Sa, Matrix3d Sg, Matrix3d Sdvl, Matrix3d Sinc, double SpressureZ)
-	:Racc{ Racc }, RaccBias{ RaccBias }, Rgyro{ Rgyro }, RgyroBias{ RgyroBias }, pgyroBias{ pgyroBias }, paccBias{ paccBias }, Sa{ Sa }, Sg{ Sg }, Sdvl{ Sdvl }, Sinc{ Sinc }, SpressureZ{SpressureZ}
+ESKF::ESKF(Matrix3d Racc, Matrix3d RaccBias, Matrix3d Rgyro, Matrix3d RgyroBias, double pgyroBias, double paccBias, Matrix3d Sa, Matrix3d Sg, Matrix3d Sdvl, Matrix3d Sinc)
+	:Racc{ Racc }, RaccBias{ RaccBias }, Rgyro{ Rgyro }, RgyroBias{ RgyroBias }, pgyroBias{ pgyroBias }, paccBias{ paccBias }, Sa{ Sa }, Sg{ Sg }, Sdvl{ Sdvl }, Sinc{ Sinc }
 {
 	D = blk3x3Diag(Racc, Rgyro, RaccBias, RgyroBias);
 }
@@ -13,7 +13,7 @@ VectorXd ESKF::predictNominal(VectorXd xnominal, Vector3d accRectifiedMeasuremen
 {
 	
 	// Initilize
-	VectorXd xNextnominal(16); //(16x1)
+	VectorXd xNextnominal(16); 
 	xNextnominal.setZero();
 
 	Vector3d dTheta = Vector3d::Zero();
@@ -295,9 +295,6 @@ InnovationPressureStates ESKF::innovationPressureZ(VectorXd xnominal, MatrixXd P
 	pressureStates.pressureInnovationCovariance = (pressureStates.pressureH * P * pressureStates.pressureH.transpose()) + RpressureZ;
 
 
-
-
-		  
 	return pressureStates;
 
 }
@@ -311,7 +308,7 @@ InjectionStates ESKF::updatePressureZ(VectorXd xnominal, MatrixXd P, double zPre
 	MatrixXd deltaX(15, 1);
 	MatrixXd pUpdate(15, 15);
 
-	identity15x15.setZero();
+	identity15x15.setIdentity();
 	pressureStates.pressureH.setZero();
 	pressureStates.pressureInnovationCovariance.setZero();
 	pressureStates.pressureInnovation = 0;
@@ -334,4 +331,116 @@ InjectionStates ESKF::updatePressureZ(VectorXd xnominal, MatrixXd P, double zPre
 	return injections;
 
 }
+
+InnovationDVLStates ESKF::innovationDVL(VectorXd xnominal, MatrixXd P, Vector3d zDVLvel, MatrixXd RDVL)
+{
+	InnovationDVLStates dvlStates;
+	double eta{ 0 };
+	double eps_1{ 0 };
+	double eps_2{ 0 };
+	double eps_3{ 0 };
+	double dx{ 0.000000001};
+	Matrix3d zero3x3Matrix = Matrix3d::Zero();
+	MatrixXd zero3x6Matrix(3, 6);
+	Matrix<double, 16, 15> X_deltaX;
+	MatrixXd Q_deltaT(4, 3);
+	MatrixXd identity6x6Matrix(6, 6);
+
+	Matrix3d R_body_to_world = Matrix3d::Zero();
+	Matrix3d R_world_to_body = Matrix3d::Zero();
+	Matrix3d Hv = Matrix3d::Zero();
+	MatrixXd Hq(3, 4);
+	Matrix<double, 1, 16> Hx;
+	Vector3d f = Vector3d::Zero();
+	MatrixXd jacobianMatrix(3, 4);
+
+	Vector4d nominalQuaternion = Vector4d::Zero();
+	Vector4d q_world_to_body = Vector4d::Zero();
+	Vector3d vel_world = Vector3d::Zero();
+	Vector4d x = Vector4d::Zero();
+
+	dvlStates.DVLH.setZero();
+	dvlStates.DVLInnovation.setZero();
+	dvlStates.DVLInnovationCovariance.setZero();
+	jacobianMatrix.setZero();
+	Hq.setZero();
+	Hx.setZero();
+	zero3x6Matrix.setZero();
+	identity6x6Matrix.setIdentity();
+
+	eta = xnominal(6);
+	eps_1 = xnominal(7);
+	eps_2 = xnominal(8);
+	eps_3 = xnominal(9);
+
+	vel_world = xnominal.block<3, 1>(3, 0);
+	nominalQuaternion = xnominal.block<4, 1>(6, 0);
+
+	R_body_to_world = quaternion2Rotationmatrix(nominalQuaternion);
+	R_world_to_body = R_body_to_world.transpose(); // Check this for error
+	q_world_to_body << eta,
+						-1.0 * eps_1,
+						-1.0 * eps_2,
+						-1.0 * eps_3;
+	
+	Hv = R_world_to_body;
+
+	x = q_world_to_body;
+	f = quaternion2Rotationmatrix(x) * vel_world;
+	jacobianMatrix = jacobianFdOfDVL(f, x, dx,vel_world);
+
+	Hq = jacobianMatrix;
+
+	Hx << zero3x3Matrix,
+			Hv,
+			Hq,
+			zero3x6Matrix;
+
+	X_deltaX.block<6, 6>(0, 0) = identity6x6Matrix;
+	X_deltaX.block<6, 6>(10, 9) = identity6x6Matrix;
+	Q_deltaT << -1.0 * eps_1, -1.0 * eps_2, -1.0 * eps_3,
+		eta, -1.0 * eps_3, eps_2,
+		eps_3, eta, -1.0 * eps_1,
+		-1.0 * eps_2, eps_1, eta;
+	X_deltaX.block<4, 3>(6, 6) = Q_deltaT;
+		  
+	dvlStates.DVLH = Hx * X_deltaX;
+	dvlStates.DVLInnovation = zDVLvel - R_world_to_body * vel_world;
+	dvlStates.DVLInnovationCovariance = (dvlStates.DVLH * P * dvlStates.DVLH.transpose()) + RDVL;
+
+	return dvlStates;
+}
+
+InjectionStates ESKF::updateDVL(VectorXd xnominal, MatrixXd P, Vector3d zDVLvel, MatrixXd RDVL)
+{
+	InjectionStates injections;
+	InnovationDVLStates DVLstates;
+	MatrixXd identity15x15(15,15);
+	MatrixXd kalmanGain(15, 3);
+	MatrixXd deltaX(15, 1);
+
+	MatrixXd pUpdate(15, 15);
+
+
+	injections.pInject.setZero();
+	injections.xInject.setZero();
+	DVLstates.DVLH.setZero();
+	DVLstates.DVLInnovation.setZero();
+	DVLstates.DVLInnovationCovariance.setZero();
+	identity15x15.setIdentity();
+
+	DVLstates = innovationDVL(xnominal, P, zDVLvel, RDVL);
+
+
+	kalmanGain = P * DVLstates.DVLH.transpose() * DVLstates.DVLInnovationCovariance.inverse();
+	deltaX = kalmanGain * DVLstates.DVLInnovation;
+	pUpdate = (identity15x15 - (kalmanGain * DVLstates.DVLH)) * P;
+	injections = inject(xnominal, deltaX, pUpdate);
+
+
+	return injections;
+
+}
+
+
 
