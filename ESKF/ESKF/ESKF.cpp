@@ -9,6 +9,7 @@ ESKF::ESKF(Matrix3d Racc, Matrix3d RaccBias, Matrix3d Rgyro, Matrix3d RgyroBias,
 }
 
 
+// Tested
 VectorXd ESKF::predictNominal(VectorXd xnominal, Vector3d accRectifiedMeasurements, Vector3d gyroRectifiedmeasurements, double Ts)
 {
 	
@@ -69,11 +70,11 @@ VectorXd ESKF::predictNominal(VectorXd xnominal, Vector3d accRectifiedMeasuremen
 	return xNextnominal;
 
 }
-
+// Tested
 MatrixXd ESKF::Aerr(VectorXd xnominal, Vector3d accRectifiedMeasurements, Vector3d gyroRectifiedmeasurements)
 {
 	// Initilize
-	MatrixXd A(16,16);
+	MatrixXd A(15,15);
 	A.setZero();
 	Matrix3d rotationMatrix = Matrix3d::Zero();
 	Vector4d quaternion = Vector4d::Zero();
@@ -88,7 +89,7 @@ MatrixXd ESKF::Aerr(VectorXd xnominal, Vector3d accRectifiedMeasurements, Vector
 	A.block<3, 3>(3, 6) = -1.0 * rotationMatrix * crossProductMatrix(accRectifiedMeasurements);
 	A.block<3, 3>(3, 9) = -1.0 * rotationMatrix;
 	A.block<3, 3>(6, 6) = -1.0 * crossProductMatrix(gyroRectifiedmeasurements);
-	A.block<3, 3>(6, 12) = -1.0 * identityMatrix;
+	A.block<3, 3>(6, 12) = -identityMatrix;
 	A.block<3, 3>(9, 9) = -1.0 * paccBias * identityMatrix;
 	A.block<3, 3>(12, 12) = -1.0 * pgyroBias * identityMatrix;
 
@@ -98,8 +99,8 @@ MatrixXd ESKF::Aerr(VectorXd xnominal, Vector3d accRectifiedMeasurements, Vector
 	A.block<3, 3>(6, 12) = A.block<3, 3>(6, 12) * Sg;
 
 	return A;
-}
-
+} // Tested 
+// Tested
 MatrixXd ESKF::Gerr(VectorXd xnominal)
 {
 	// Initilize
@@ -121,14 +122,14 @@ MatrixXd ESKF::Gerr(VectorXd xnominal)
 	return Gerror;
 
 }
-
+// Tested
 AdandGQGD ESKF::discreteErrorMatrix(VectorXd xnominal, Vector3d accRectifiedMeasurements, Vector3d gyroRectifiedmeasurements, double Ts)
 {
 	AdandGQGD errorMatrix;
 	MatrixXd vanLoan(30, 30);
 	MatrixXd vanLoanExponentional(30, 30);
 	MatrixXd zeros(15, 15);
-	MatrixXd A(16, 16);
+	MatrixXd A(15, 15);
 	MatrixXd G(15, 12);
 
 	A.setZero();
@@ -142,13 +143,24 @@ AdandGQGD ESKF::discreteErrorMatrix(VectorXd xnominal, Vector3d accRectifiedMeas
 	A = Aerr(xnominal, accRectifiedMeasurements, gyroRectifiedmeasurements);
 	G = Gerr(xnominal);
 
+	//std::cout << "A: " << A << std::endl;
+	//std::cout << G << std::endl;
+
 	vanLoan << -1.0 * A, G* D* G.transpose(),
 				zeros, A.transpose();
 
+	vanLoan = vanLoan * Ts;
+
+	//std::cout << vanLoan << std::endl;
+
 	vanLoanExponentional= vanLoan.exp();
 	
+	//std::cout << vanLoanExponentional << std::endl;
 
 	errorMatrix.Ad = vanLoanExponentional.block<15, 15>(15, 15).transpose();
+
+	//std::cout << errorMatrix.Ad << std::endl;
+
 	errorMatrix.GQGD = vanLoanExponentional.block<15, 15>(15, 15).transpose() * vanLoanExponentional.block<15, 15>(0, 15);
 
 	return errorMatrix;
@@ -156,7 +168,7 @@ AdandGQGD ESKF::discreteErrorMatrix(VectorXd xnominal, Vector3d accRectifiedMeas
 
 
 }
-
+// Tested
 MatrixXd ESKF::predictCovariance(VectorXd xnominal, MatrixXd P, Vector3d accRectifiedMeasurements, Vector3d gyroRectifiedmeasurements, double Ts)
 {
 	MatrixXd Pprediction(15, 15);
@@ -172,7 +184,7 @@ MatrixXd ESKF::predictCovariance(VectorXd xnominal, MatrixXd P, Vector3d accRect
 	return Pprediction;
 
 }
-
+// Tested
 StatePredictions ESKF::predict(VectorXd xnominal, MatrixXd P, VectorXd zAccMeasurements, VectorXd zGyroMeasurements, double Ts)
 {
 	
@@ -200,7 +212,7 @@ StatePredictions ESKF::predict(VectorXd xnominal, MatrixXd P, VectorXd zAccMeasu
 	
 	return predictions;
 }
-
+// Tested
 InjectionStates ESKF::inject(VectorXd xnominal, VectorXd deltaX, MatrixXd P)
 {
 	MatrixXd Ginject(15, 15);
@@ -245,7 +257,7 @@ InjectionStates ESKF::inject(VectorXd xnominal, VectorXd deltaX, MatrixXd P)
 
 	return injections;
 }
-
+// Tested
 InnovationPressureStates ESKF::innovationPressureZ(VectorXd xnominal, MatrixXd P, double zPressureZpos, MatrixXd RpressureZ)
 {
 	// Initilize
@@ -298,7 +310,7 @@ InnovationPressureStates ESKF::innovationPressureZ(VectorXd xnominal, MatrixXd P
 	return pressureStates;
 
 }
-
+// Tested
 InjectionStates ESKF::updatePressureZ(VectorXd xnominal, MatrixXd P, double zPressureZpos, MatrixXd RpressureZ)
 {
 	InjectionStates injections;
@@ -331,7 +343,7 @@ InjectionStates ESKF::updatePressureZ(VectorXd xnominal, MatrixXd P, double zPre
 	return injections;
 
 }
-
+// Tested
 InnovationDVLStates ESKF::innovationDVL(VectorXd xnominal, MatrixXd P, Vector3d zDVLvel, MatrixXd RDVL)
 {
 	InnovationDVLStates dvlStates;
@@ -350,7 +362,7 @@ InnovationDVLStates ESKF::innovationDVL(VectorXd xnominal, MatrixXd P, Vector3d 
 	Matrix3d R_world_to_body = Matrix3d::Zero();
 	Matrix3d Hv = Matrix3d::Zero();
 	MatrixXd Hq(3, 4);
-	Matrix<double, 1, 16> Hx;
+	Matrix<double, 3, 16> Hx;
 	Vector3d f = Vector3d::Zero();
 	MatrixXd jacobianMatrix(3, 4);
 
@@ -367,6 +379,8 @@ InnovationDVLStates ESKF::innovationDVL(VectorXd xnominal, MatrixXd P, Vector3d 
 	Hx.setZero();
 	zero3x6Matrix.setZero();
 	identity6x6Matrix.setIdentity();
+	X_deltaX.setZero();
+	Q_deltaT.setZero();
 
 	eta = xnominal(6);
 	eps_1 = xnominal(7);
@@ -391,10 +405,14 @@ InnovationDVLStates ESKF::innovationDVL(VectorXd xnominal, MatrixXd P, Vector3d 
 
 	Hq = jacobianMatrix;
 
+	//std::cout << Hq << std::endl;
+
 	Hx << zero3x3Matrix,
 			Hv,
 			Hq,
 			zero3x6Matrix;
+
+	//std::cout << Hx << std::endl;
 
 	X_deltaX.block<6, 6>(0, 0) = identity6x6Matrix;
 	X_deltaX.block<6, 6>(10, 9) = identity6x6Matrix;
@@ -402,15 +420,19 @@ InnovationDVLStates ESKF::innovationDVL(VectorXd xnominal, MatrixXd P, Vector3d 
 		eta, -1.0 * eps_3, eps_2,
 		eps_3, eta, -1.0 * eps_1,
 		-1.0 * eps_2, eps_1, eta;
+	Q_deltaT = Q_deltaT * 0.5;
 	X_deltaX.block<4, 3>(6, 6) = Q_deltaT;
+
+	//std::cout << X_deltaX << std::endl;
 		  
 	dvlStates.DVLH = Hx * X_deltaX;
+	//std::cout << dvlStates.DVLH << std::endl;
 	dvlStates.DVLInnovation = zDVLvel - R_world_to_body * vel_world;
 	dvlStates.DVLInnovationCovariance = (dvlStates.DVLH * P * dvlStates.DVLH.transpose()) + RDVL;
 
 	return dvlStates;
 }
-
+// Tested
 InjectionStates ESKF::updateDVL(VectorXd xnominal, MatrixXd P, Vector3d zDVLvel, MatrixXd RDVL)
 {
 	InjectionStates injections;
@@ -441,6 +463,7 @@ InjectionStates ESKF::updateDVL(VectorXd xnominal, MatrixXd P, Vector3d zDVLvel,
 	return injections;
 
 }
+
 
 
 
