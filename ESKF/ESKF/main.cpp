@@ -93,7 +93,7 @@ int main()
     Sg.setIdentity();
 
     ESKF eskf{ Racc,RaccBias,Rgyro,RgyroBias,pgyroBias,paccBias,Sa,Sg,Sdvl,Sinc};
-
+    
     Racc = Racc * Ts;
 
     pressureTesting = eskf.innovationPressureZ(xnominal, P, pressureValue, RpressureZ);
@@ -101,8 +101,8 @@ int main()
     dvlstatetesting = eskf.innovationDVL(xnominal, P, ZdvlValues, RDVL);
     injectionDVLTesting = eskf.updateDVL(xnominal, P, ZdvlValues, RDVL);
 
-    //std::cout << injectionDVLTesting.pInject << std::endl;
-    //std::cout << injectionDVLTesting.xInject << std::endl;
+    std::cout << injectionDVLTesting.pInject << std::endl;
+    std::cout << injectionDVLTesting.xInject << std::endl;
 
     //std::cout << dvlstatetesting.DVLH << std::endl;
     //std::cout << dvlstatetesting.DVLInnovation << std::endl;
@@ -133,5 +133,6 @@ int main()
     
     //std::cout << eskf.predictCovariance(xnominal,P,accRectifiedMeasurements,gyroRectifiedMeasurements,Ts) <<std::endl;
     //std::cout << injectiontesting.xInject << std::endl;
+    //std::cout << statetesting.xNominalPrediction << std::endl;
  
 }
