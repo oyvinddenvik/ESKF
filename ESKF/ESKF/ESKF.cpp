@@ -8,7 +8,6 @@ ESKF::ESKF(Matrix3d Racc, Matrix3d RaccBias, Matrix3d Rgyro, Matrix3d RgyroBias,
 	D = blk3x3Diag(Racc, Rgyro, RaccBias, RgyroBias);
 }
 
-
 // Tested
 VectorXd ESKF::predictNominal(VectorXd xnominal, Vector3d accRectifiedMeasurements, Vector3d gyroRectifiedmeasurements, double Ts)
 {

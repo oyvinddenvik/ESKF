@@ -101,7 +101,7 @@ int main()
     dvlstatetesting = eskf.innovationDVL(xnominal, P, ZdvlValues, RDVL);
     injectionDVLTesting = eskf.updateDVL(xnominal, P, ZdvlValues, RDVL);
 
-    std::cout << injectionDVLTesting.pInject << std::endl;
+    //std::cout << injectionDVLTesting.pInject << std::endl;
     //std::cout << injectionDVLTesting.xInject << std::endl;
 
     //std::cout << dvlstatetesting.DVLH << std::endl;
