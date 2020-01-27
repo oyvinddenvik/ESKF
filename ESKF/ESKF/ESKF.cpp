@@ -2,14 +2,13 @@
 #include "common.h"
 
 
-ESKF::ESKF(Matrix3d Racc, Matrix3d RaccBias, Matrix3d Rgyro, Matrix3d RgyroBias, double pgyroBias, double paccBias, Matrix3d Sa, Matrix3d Sg, Matrix3d Sdvl, Matrix3d Sinc)
+ESKF::ESKF(const Matrix3d& Racc, const Matrix3d& RaccBias, const Matrix3d& Rgyro, const Matrix3d& RgyroBias, const double& pgyroBias, const double& paccBias, const Matrix3d& Sa, const Matrix3d& Sg, const Matrix3d& Sdvl, const Matrix3d& Sinc)
 	:Racc{ Racc }, RaccBias{ RaccBias }, Rgyro{ Rgyro }, RgyroBias{ RgyroBias }, pgyroBias{ pgyroBias }, paccBias{ paccBias }, Sa{ Sa }, Sg{ Sg }, Sdvl{ Sdvl }, Sinc{ Sinc }
 {
 	D = blk3x3Diag(Racc, Rgyro, RaccBias, RgyroBias);
 }
-
 // Tested
-VectorXd ESKF::predictNominal(VectorXd xnominal, Vector3d accRectifiedMeasurements, Vector3d gyroRectifiedmeasurements, double Ts)
+VectorXd ESKF::predictNominal(const VectorXd& xnominal, const Vector3d& accRectifiedMeasurements, const Vector3d& gyroRectifiedmeasurements, const double& Ts)
 {
 	
 	// Initilize
@@ -70,7 +69,7 @@ VectorXd ESKF::predictNominal(VectorXd xnominal, Vector3d accRectifiedMeasuremen
 
 }
 // Tested
-MatrixXd ESKF::Aerr(VectorXd xnominal, Vector3d accRectifiedMeasurements, Vector3d gyroRectifiedmeasurements)
+MatrixXd ESKF::Aerr(const VectorXd& xnominal, const Vector3d& accRectifiedMeasurements, const Vector3d& gyroRectifiedmeasurements)
 {
 	// Initilize
 	MatrixXd A(15,15);
@@ -100,7 +99,7 @@ MatrixXd ESKF::Aerr(VectorXd xnominal, Vector3d accRectifiedMeasurements, Vector
 	return A;
 } // Tested 
 // Tested
-MatrixXd ESKF::Gerr(VectorXd xnominal)
+MatrixXd ESKF::Gerr(const VectorXd& xnominal)
 {
 	// Initilize
 	MatrixXd Gerror(15, 12);
@@ -122,8 +121,9 @@ MatrixXd ESKF::Gerr(VectorXd xnominal)
 
 }
 // Tested
-AdandGQGD ESKF::discreteErrorMatrix(VectorXd xnominal, Vector3d accRectifiedMeasurements, Vector3d gyroRectifiedmeasurements, double Ts)
+AdandGQGD ESKF::discreteErrorMatrix(const VectorXd& xnominal,const Vector3d& accRectifiedMeasurements,const Vector3d& gyroRectifiedmeasurements,const double& Ts)
 {
+	// Initilize
 	AdandGQGD errorMatrix;
 	MatrixXd vanLoan(30, 30);
 	MatrixXd vanLoanExponentional(30, 30);
@@ -139,36 +139,22 @@ AdandGQGD ESKF::discreteErrorMatrix(VectorXd xnominal, Vector3d accRectifiedMeas
 	errorMatrix.Ad.setZero();
 	errorMatrix.GQGD.setZero();
 
+	// Caculate Van Loan
 	A = Aerr(xnominal, accRectifiedMeasurements, gyroRectifiedmeasurements);
 	G = Gerr(xnominal);
-
-	//std::cout << "A: " << A << std::endl;
-	//std::cout << G << std::endl;
 
 	vanLoan << -1.0 * A, G* D* G.transpose(),
 				zeros, A.transpose();
 
 	vanLoan = vanLoan * Ts;
-
-	//std::cout << vanLoan << std::endl;
-
 	vanLoanExponentional= vanLoan.exp();
-	
-	//std::cout << vanLoanExponentional << std::endl;
-
 	errorMatrix.Ad = vanLoanExponentional.block<15, 15>(15, 15).transpose();
-
-	//std::cout << errorMatrix.Ad << std::endl;
-
 	errorMatrix.GQGD = vanLoanExponentional.block<15, 15>(15, 15).transpose() * vanLoanExponentional.block<15, 15>(0, 15);
 
 	return errorMatrix;
-
-
-
 }
 // Tested
-MatrixXd ESKF::predictCovariance(VectorXd xnominal, MatrixXd P, Vector3d accRectifiedMeasurements, Vector3d gyroRectifiedmeasurements, double Ts)
+MatrixXd ESKF::predictCovariance(const VectorXd& xnominal,const MatrixXd& P,const Vector3d& accRectifiedMeasurements,const Vector3d& gyroRectifiedmeasurements,const double& Ts)
 {
 	MatrixXd Pprediction(15, 15);
 	AdandGQGD errorMatrix;
@@ -184,7 +170,7 @@ MatrixXd ESKF::predictCovariance(VectorXd xnominal, MatrixXd P, Vector3d accRect
 
 }
 // Tested
-StatePredictions ESKF::predict(VectorXd xnominal, MatrixXd P, VectorXd zAccMeasurements, VectorXd zGyroMeasurements, double Ts)
+StatePredictions ESKF::predict(const VectorXd& xnominal,const MatrixXd& P, Vector3d zAccMeasurements, Vector3d zGyroMeasurements,const double& Ts)
 {
 	
 	StatePredictions predictions;
@@ -212,7 +198,7 @@ StatePredictions ESKF::predict(VectorXd xnominal, MatrixXd P, VectorXd zAccMeasu
 	return predictions;
 }
 // Tested
-InjectionStates ESKF::inject(VectorXd xnominal, VectorXd deltaX, MatrixXd P)
+InjectionStates ESKF::inject(const VectorXd& xnominal,const VectorXd& deltaX,const MatrixXd& P)
 {
 	MatrixXd Ginject(15, 15);
 	Ginject.setIdentity();
@@ -243,21 +229,19 @@ InjectionStates ESKF::inject(VectorXd xnominal, VectorXd deltaX, MatrixXd P)
 
 	
 	injections.xInject << positionInjections,
-						velocityInjections,
-						quaternionInjections,
-						accelerationBiasInjections,
-						gyroBiasInjections;
+						  velocityInjections,
+						  quaternionInjections,
+						  accelerationBiasInjections,
+						  gyroBiasInjections;
 	
 	
-
 	Ginject.block<3, 3>(6, 6) = identityMatrix3x3 - crossProductMatrix(0.5 * deltaX.block<3,1>(6, 0));
-	
 	injections.pInject = Ginject * P * Ginject.transpose();
 
 	return injections;
 }
 // Tested
-InnovationPressureStates ESKF::innovationPressureZ(VectorXd xnominal, MatrixXd P, double zPressureZpos, MatrixXd RpressureZ)
+InnovationPressureStates ESKF::innovationPressureZ(const VectorXd& xnominal,const MatrixXd& P,const double& zPressureZpos,const MatrixXd& RpressureZ)
 {
 	// Initilize
 	InnovationPressureStates pressureStates;
@@ -310,7 +294,7 @@ InnovationPressureStates ESKF::innovationPressureZ(VectorXd xnominal, MatrixXd P
 
 }
 // Tested
-InjectionStates ESKF::updatePressureZ(VectorXd xnominal, MatrixXd P, double zPressureZpos, MatrixXd RpressureZ)
+InjectionStates ESKF::updatePressureZ(const VectorXd& xnominal,const MatrixXd& P,const double& zPressureZpos,const MatrixXd& RpressureZ)
 {
 	InjectionStates injections;
 	InnovationPressureStates pressureStates;
@@ -343,7 +327,7 @@ InjectionStates ESKF::updatePressureZ(VectorXd xnominal, MatrixXd P, double zPre
 
 }
 // Tested
-InnovationDVLStates ESKF::innovationDVL(VectorXd xnominal, MatrixXd P, Vector3d zDVLvel, MatrixXd RDVL)
+InnovationDVLStates ESKF::innovationDVL(const VectorXd& xnominal,const MatrixXd& P,const Vector3d& zDVLvel,const Matrix3d& RDVL)
 {
 	InnovationDVLStates dvlStates;
 	double eta{ 0 };
@@ -432,7 +416,7 @@ InnovationDVLStates ESKF::innovationDVL(VectorXd xnominal, MatrixXd P, Vector3d 
 	return dvlStates;
 }
 // Tested
-InjectionStates ESKF::updateDVL(VectorXd xnominal, MatrixXd P, Vector3d zDVLvel, MatrixXd RDVL)
+InjectionStates ESKF::updateDVL(const VectorXd& xnominal,const MatrixXd& P,const Vector3d& zDVLvel,const Matrix3d& RDVL)
 {
 	InjectionStates injections;
 	InnovationDVLStates DVLstates;
