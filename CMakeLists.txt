@@ -2,11 +2,18 @@ cmake_minimum_required(VERSION 2.8.3)
 project(ESKF)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+ add_compile_options(-std=c++11)
+
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
+
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
+find_package(Eigen3 REQUIRED)
+
+
+
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   roscpp
@@ -14,6 +21,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
   tf
+  message_generation
 )
 
 ## System dependencies are found with CMake's conventions
@@ -71,10 +79,12 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   geometry_msgs#   sensor_msgs#   std_msgs
-# )
+ generate_messages(
+   DEPENDENCIES
+   geometry_msgs   
+   sensor_msgs   
+   std_msgs
+ )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -106,10 +116,10 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
+  INCLUDE_DIRS include
 #  LIBRARIES ESKF
-#  CATKIN_DEPENDS geometry_msgs roscpp rospy sensor_msgs std_msgs tf
-#  DEPENDS system_lib
+  CATKIN_DEPENDS geometry_msgs roscpp rospy message_runtime sensor_msgs std_msgs tf
+  DEPENDS eigen system_lib
 )
 
 ###########
@@ -119,8 +129,9 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
+  include
   ${catkin_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIR}
 )
 
 ## Declare a C++ library
@@ -136,6 +147,12 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
+file(GLOB SOURCES "scripts/*.cpp" "scripts/*/*.cpp")
+add_executable(ESKF ${SOURCES})
+
+
+target_link_libraries(ESKF ${catkin_LIBRARIES})
+
 # add_executable(${PROJECT_NAME}_node src/ESKF_node.cpp)
 
 ## Rename C++ executable without prefix
