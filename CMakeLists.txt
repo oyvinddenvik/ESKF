@@ -21,6 +21,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
   tf
+  nav_msgs
   message_generation
 )
 
@@ -84,6 +85,7 @@ find_package(catkin REQUIRED COMPONENTS
    geometry_msgs   
    sensor_msgs   
    std_msgs
+   nav_msgs
  )
 
 ################################################
@@ -118,7 +120,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES ESKF
-  CATKIN_DEPENDS geometry_msgs roscpp rospy message_runtime sensor_msgs std_msgs tf
+  CATKIN_DEPENDS geometry_msgs roscpp rospy message_runtime sensor_msgs std_msgs tf nav_msgs
   DEPENDS eigen system_lib
 )
 
