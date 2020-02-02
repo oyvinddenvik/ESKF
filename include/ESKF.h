@@ -7,35 +7,93 @@
 
 using namespace Eigen;
 
+enum NominalStateMembers //(16x1)
+{
+	StateMemberX = 0,
+	StateMemberY = 1,
+	StateMemberZ = 2,
+	StateMemberVx = 3,
+	StateMemberVy = 4,
+	StateMemberVz = 5,
+	StateMemberQw = 6,
+	StateMemberQx = 7,
+	StateMemberQy = 8,
+	StateMemberQz = 9,
+	StateMemberAccBiasX = 10,
+	StateMemberAccBiasY = 11,
+	StateMemberAccBiasZ = 12,
+	StateMemberGyroBiasX = 13,
+	StateMemberGyroBiasY = 14,
+	StateMemberGyroBiasZ = 15
+};
+
+constexpr int NOMINAL_STATE_SIZE{16};
+constexpr int NOMINAL_POSITION_STATE_OFFSET = StateMemberX;
+constexpr int NOMINAL_VELOCITY_STATE_OFFSET = StateMemberVx;
+constexpr int NOMINAL_QUATERNION_STATE_OFFSET = StateMemberQw;
+constexpr int NOMINAL_ACC_BIAS_STATE_OFFSET = StateMemberAccBiasX;
+constexpr int NOMINAL_GYRO_BIAS_STATE_OFFSET = StateMemberGyroBiasX;
+constexpr int NOMINAL_POSITION_STATE_SIZE{3};
+constexpr int NOMINAL_VELOCITY_STATE_SIZE{3};
+constexpr int NOMINAL_QUATERNION_STATE_SIZE{4};
+constexpr int NOMINAL_ACC_BIAS_SIZE{3};
+constexpr int NOMINAL_GYRO_BIAS_SIZE{3};
+
+enum ErrorStateMembers  //(15x1)
+{
+	ErrorStateMemberX = 0,
+	ErrorStateMemberY = 1,
+	ErrorStateMemberZ = 2,
+	ErrorStateMemberVx = 3,
+	ErrorStateMemberVy = 4,
+	ErrorStateMemberVz = 5,
+	ErrorStateMemberDeltaRoll = 6,
+	ErrorStateMemberDeltaPitch = 7,
+	ErrorStateMemberDeltaYaw = 8,
+	ErrorStateMemberAccBiasX = 9,
+	ErrorStateMemberAccBiasY = 10,
+	ErrorStateMemberAccBiasZ = 11,
+	ErrorStateMemberGyroBiasX = 12,
+	ErrorStateMemberGyroBiasY = 13,
+	ErrorStateMemberGyroBiasZ = 14
+};
+
 constexpr double GRAVITY{ 9.80665 };
-constexpr int ROWSOFPOSITION{ 3 };
-constexpr int ROWSOFVELOCITY{ 3 };
-constexpr int ROWSOFQUATERNIONS{ 4 };
-constexpr int ROWSOFACCBIAS{ 3 };
-constexpr int ROWSOFGYROBIAS{ 3 };
-constexpr int NumberOfNominalStates{ 16 };
-constexpr int NumberOfErrorStates{ 15 };
+constexpr int ERROR_STATE_SIZE{15};
+constexpr int ERROR_POSITION_STATE_OFFSET = ErrorStateMemberX;
+constexpr int ERROR_VELOCITY_STATE_OFFSET = ErrorStateMemberVx;
+constexpr int ERROR_DANGLE_STATE_OFFSET = ErrorStateMemberDeltaRoll;
+constexpr int ERROR_ACC_BIAS_STATE_OFFSET = ErrorStateMemberAccBiasX;
+constexpr int ERROR_GYRO_BIAS_STATE_OFFSET = ErrorStateMemberGyroBiasX;
+constexpr int ERROR_POSITION_STATE_SIZE{3};
+constexpr int ERROR_VELOCITY_STATE_SIZE{3};
+constexpr int ERROR_DANGLE_STATE_SIZE{3};
+constexpr int ERROR_ACC_BIAS_SIZE{3};
+constexpr int ERROR_GYRO_BIAS_SIZE{3};
+
+
+
 
 struct AdandGQGD {
-	Matrix<double, 15, 15> Ad;
-	Matrix<double, 15, 15> GQGD;
+	Matrix<double, ERROR_STATE_SIZE, ERROR_STATE_SIZE> Ad; //(15x15)
+	Matrix<double, ERROR_STATE_SIZE, ERROR_STATE_SIZE> GQGD; //(15x15)
 };
 
 struct StatePredictions {
-	Matrix<double,NumberOfNominalStates,1> xNominalPrediction;				 // (16x1)
-	Matrix<double,NumberOfErrorStates,NumberOfErrorStates> pPrediction;		 // (15x15)
+	Matrix<double,NOMINAL_STATE_SIZE,1> xNominalPrediction;				 // (16x1)
+	Matrix<double,ERROR_STATE_SIZE,ERROR_STATE_SIZE> pPrediction;		 // (15x15)
 };
 
 struct InjectionStates {
-	Matrix<double, NumberOfNominalStates,1> xInject;				  // (16x1) 
-	Matrix<double, NumberOfErrorStates,NumberOfErrorStates> pInject;  // (15x15)
+	Matrix<double, NOMINAL_STATE_SIZE,1> xInject;				  // (16x1) 
+	Matrix<double, ERROR_STATE_SIZE,ERROR_STATE_SIZE> pInject;  // (15x15)
 };
 
 struct InnovationPressureStates {
 	//Matrix<double,1,1> pressureInnovation;				// (1x1)
 	double pressureInnovation;
 	Matrix<double,1,1> pressureInnovationCovariance;	// (1x1)
-	Matrix<double,1,NumberOfErrorStates> pressureH;		// (1x15)
+	Matrix<double,1,ERROR_STATE_SIZE> pressureH;		// (1x15)
 };
 
 struct InnovationDVLStates {

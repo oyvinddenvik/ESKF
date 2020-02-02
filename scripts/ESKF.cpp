@@ -12,7 +12,7 @@ VectorXd ESKF::predictNominal(const VectorXd& xnominal, const Vector3d& accRecti
 {
 	
 	// Initilize
-	VectorXd xNextnominal(16); 
+	VectorXd xNextnominal(NOMINAL_STATE_SIZE); // 16
 	xNextnominal.setZero();
 
 	Vector3d dTheta = Vector3d::Zero();
@@ -34,11 +34,11 @@ VectorXd ESKF::predictNominal(const VectorXd& xnominal, const Vector3d& accRecti
 	
 
 	// Extract states
-	position = xnominal.block<3, 1>(0, 0);
-	velocity = xnominal.block<3, 1>(3, 0);
-	quaternion = xnominal.block<4, 1>(6, 0);
-	accBias = xnominal.block<3, 1>(10, 0);
-	gyroBias = xnominal.block<3, 1>(13, 0);
+	position = xnominal.block<NOMINAL_POSITION_STATE_SIZE, 1>(NOMINAL_POSITION_STATE_OFFSET, 0); // 3 ,0 
+	velocity = xnominal.block<NOMINAL_VELOCITY_STATE_SIZE, 1>(NOMINAL_VELOCITY_STATE_OFFSET, 0); // 3, 3
+	quaternion = xnominal.block<NOMINAL_QUATERNION_STATE_SIZE, 1>(NOMINAL_QUATERNION_STATE_OFFSET, 0); // 4, 6
+	accBias = xnominal.block<NOMINAL_ACC_BIAS_SIZE, 1>(NOMINAL_ACC_BIAS_STATE_OFFSET, 0); // 3, 10
+	gyroBias = xnominal.block<NOMINAL_GYRO_BIAS_SIZE, 1>(NOMINAL_GYRO_BIAS_STATE_OFFSET, 0); //3, 13
 
 
 	// Get rotation matrix from quaternion
@@ -72,14 +72,14 @@ VectorXd ESKF::predictNominal(const VectorXd& xnominal, const Vector3d& accRecti
 MatrixXd ESKF::Aerr(const VectorXd& xnominal, const Vector3d& accRectifiedMeasurements, const Vector3d& gyroRectifiedmeasurements)
 {
 	// Initilize
-	MatrixXd A(15,15);
+	MatrixXd A(ERROR_STATE_SIZE,ERROR_STATE_SIZE); //(15x15)
 	A.setZero();
 	Matrix3d rotationMatrix = Matrix3d::Zero();
 	Vector4d quaternion = Vector4d::Zero();
 	Matrix3d identityMatrix = Matrix3d::Identity();
 
 
-	quaternion = xnominal.block<4, 1>(6, 0);
+	quaternion = xnominal.block<NOMINAL_QUATERNION_STATE_SIZE, 1>(NOMINAL_QUATERNION_STATE_OFFSET, 0); // 4,6
 	rotationMatrix = quaternion2Rotationmatrix(quaternion);
 
 
@@ -97,19 +97,19 @@ MatrixXd ESKF::Aerr(const VectorXd& xnominal, const Vector3d& accRectifiedMeasur
 	A.block<3, 3>(6, 12) = A.block<3, 3>(6, 12) * Sg;
 
 	return A;
-} // Tested 
+}
 // Tested
 MatrixXd ESKF::Gerr(const VectorXd& xnominal)
 {
 	// Initilize
-	MatrixXd Gerror(15, 12);
+	MatrixXd Gerror(ERROR_STATE_SIZE, 12); //(15x12)
 	Gerror.setZero();
 	Matrix3d rotationMatrix = Matrix3d::Zero();
 	Vector4d quaternion = Vector4d::Zero();
 	Matrix3d identityMatrix = Matrix3d::Identity();
 
 
-	quaternion = xnominal.block<4, 1>(6, 0);
+	quaternion = xnominal.block<NOMINAL_QUATERNION_STATE_SIZE, 1>(NOMINAL_QUATERNION_STATE_OFFSET, 0); // 4,6
 	rotationMatrix = quaternion2Rotationmatrix(quaternion);
 
 	Gerror.block<3, 3>(3, 0) = -1.0 * rotationMatrix;
@@ -125,11 +125,11 @@ AdandGQGD ESKF::discreteErrorMatrix(const VectorXd& xnominal,const Vector3d& acc
 {
 	// Initilize
 	AdandGQGD errorMatrix;
-	MatrixXd vanLoan(30, 30);
-	MatrixXd vanLoanExponentional(30, 30);
-	MatrixXd zeros(15, 15);
-	MatrixXd A(15, 15);
-	MatrixXd G(15, 12);
+	MatrixXd vanLoan(ERROR_STATE_SIZE*2, ERROR_STATE_SIZE*2); //(30x30)
+	MatrixXd vanLoanExponentional(ERROR_STATE_SIZE*2, ERROR_STATE_SIZE*2); // (30x30)
+	MatrixXd zeros(ERROR_STATE_SIZE, ERROR_STATE_SIZE); //(15x15)
+	MatrixXd A(ERROR_STATE_SIZE, ERROR_STATE_SIZE); // (15x15)
+	MatrixXd G(ERROR_STATE_SIZE, 12); //(15x12)
 
 	A.setZero();
 	G.setZero();
@@ -148,15 +148,15 @@ AdandGQGD ESKF::discreteErrorMatrix(const VectorXd& xnominal,const Vector3d& acc
 
 	vanLoan = vanLoan * Ts;
 	vanLoanExponentional= vanLoan.exp();
-	errorMatrix.Ad = vanLoanExponentional.block<15, 15>(15, 15).transpose();
-	errorMatrix.GQGD = vanLoanExponentional.block<15, 15>(15, 15).transpose() * vanLoanExponentional.block<15, 15>(0, 15);
+	errorMatrix.Ad = vanLoanExponentional.block<ERROR_STATE_SIZE, ERROR_STATE_SIZE>(ERROR_STATE_SIZE,ERROR_STATE_SIZE).transpose(); //(15,15,15,15)
+	errorMatrix.GQGD = vanLoanExponentional.block<ERROR_STATE_SIZE, ERROR_STATE_SIZE>(ERROR_STATE_SIZE,ERROR_STATE_SIZE).transpose() * vanLoanExponentional.block<ERROR_STATE_SIZE, ERROR_STATE_SIZE>(0, ERROR_STATE_SIZE); // (15,15,15,15,15,15,15,0,15) 
 
 	return errorMatrix;
 }
 // Tested
 MatrixXd ESKF::predictCovariance(const VectorXd& xnominal,const MatrixXd& P,const Vector3d& accRectifiedMeasurements,const Vector3d& gyroRectifiedmeasurements,const double& Ts)
 {
-	MatrixXd Pprediction(15, 15);
+	MatrixXd Pprediction(ERROR_STATE_SIZE, ERROR_STATE_SIZE); //(15,15)
 	AdandGQGD errorMatrix;
 
 	Pprediction.setZero();
@@ -186,8 +186,8 @@ StatePredictions ESKF::predict(const VectorXd& xnominal,const MatrixXd& P, Vecto
 	zAccMeasurements = Sa * zAccMeasurements;
 	zGyroMeasurements = Sg * zGyroMeasurements;
 
-	accBias = Sa * xnominal.block<3, 1>(10, 0);
-	gyroBias = Sg * xnominal.block<3, 1>(13, 0);
+	accBias = Sa * xnominal.block<NOMINAL_ACC_BIAS_SIZE, 1>(NOMINAL_ACC_BIAS_STATE_OFFSET, 0); //(3,10)
+	gyroBias = Sg * xnominal.block<NOMINAL_GYRO_BIAS_SIZE, 1>(NOMINAL_GYRO_BIAS_STATE_OFFSET, 0); //(3,13)
 
 	accelerationRectified = zAccMeasurements - accBias;
 	gyroRectified = zGyroMeasurements - gyroBias;

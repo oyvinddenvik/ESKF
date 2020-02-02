@@ -1,6 +1,11 @@
 #include"common.h"
 
 
+
+
+
+
+
 Matrix3d crossProductMatrix(const Vector3d& n)
 {
 	Matrix3d skewMatrix = Matrix3d::Zero();

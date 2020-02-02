@@ -6,6 +6,9 @@
 
 using namespace Eigen;
 
+
+
+
 template <typename Derived>
 MatrixXd blkdiag(const MatrixBase<Derived>& a, int count)
 {

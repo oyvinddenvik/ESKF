@@ -2,7 +2,6 @@
 #include"ESKF.h"
 #include <Eigen/Core>
 
-
 using namespace Eigen;
 
 struct structTest {
@@ -102,23 +101,19 @@ int main()
     injectionDVLTesting = eskf.updateDVL(xnominal, P, ZdvlValues, RDVL);
 
     //std::cout << injectionDVLTesting.pInject << std::endl;
-    std::cout << injectionDVLTesting.xInject << std::endl;
+    //std::cout << injectionDVLTesting.xInject << std::endl;
+    std::cout << ERROR_VELOCITY_STATE_OFFSET << std::endl;
 
     //std::cout << dvlstatetesting.DVLH << std::endl;
     //std::cout << dvlstatetesting.DVLInnovation << std::endl;
     //std::cout << dvlstatetesting.DVLInnovationCovariance << std::endl;
-
-
-
+    
     //std::cout << pressureTesting.pressureH << std::endl;
     //std::cout << pressureTesting.pressureInnovation << std::endl;
     //std::cout << pressureTesting.pressureInnovationCovariance << std::endl;
 
     //std::cout << injectionPressureTesting.xInject << std::endl;
     //std::cout << injectionPressureTesting.pInject << std::endl;
-
-
- 
 
     //statetesting = eskf.predict(xnominal, P, accRectifiedMeasurements, gyroRectifiedMeasurements, Ts);
     //injectiontesting = eskf.inject(xnominal, deltaX, P);
