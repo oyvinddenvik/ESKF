@@ -1,5 +1,6 @@
 #include"common.h"
 #include"ESKF.h"
+#include"ros_node.h"
 #include <Eigen/Core>
 
 
@@ -26,17 +27,34 @@ structTest returnMultipleMatricies()
 
 
 
-int main()
+int main(int argc, char *argv[])
 {
-    InjectionStates injectionDVLTesting;
+    
+    
+    ros::init(argc,argv,"eskf");
+    ros::NodeHandle nh;
+    ros::NodeHandle pnh("~");
+    ESKF_Node eskf_node(nh,pnh);
+    ros::spin();
+    return 0;
+    
+   
+    /*
+    MatrixXd INITIAL_P(15,15);
+    INITIAL_P.setIdentity();
+
+    std::cout<<INITIAL_P<<std::endl;
+    */
+    /*
+    //InjectionStates injectionDVLTesting;
     InnovationDVLStates dvlstatetesting;
     Vector3d ZdvlValues = Vector3d::Zero();
     Matrix3d RDVL = Matrix3d::Zero();
-    InjectionStates injectionPressureTesting;
-    StatePredictions statetesting;
+    //InjectionStates injectionPressureTesting;
+    //StatePredictions statetesting;
     InnovationPressureStates pressureTesting;
     VectorXd deltaX(15);
-    InjectionStates injectiontesting;
+    //InjectionStates injectiontesting;
     MatrixXd P(15, 15);
     AdandGQGD testing;
     double Ts{ 0.0080 };
@@ -96,13 +114,19 @@ int main()
     
     Racc = Racc * Ts;
 
-    pressureTesting = eskf.innovationPressureZ(xnominal, P, pressureValue, RpressureZ);
-    injectionPressureTesting = eskf.updatePressureZ(xnominal, P, pressureValue, RpressureZ);
-    dvlstatetesting = eskf.innovationDVL(xnominal, P, ZdvlValues, RDVL);
-    injectionDVLTesting = eskf.updateDVL(xnominal, P, ZdvlValues, RDVL);
+    std::cout<<eskf.getPose()<<std::endl;
+    eskf.predict(accRectifiedMeasurements,gyroRectifiedMeasurements,Ts);
+    std::cout<<eskf.getPose()<<std::endl;
+    eskf.predict(accRectifiedMeasurements,gyroRectifiedMeasurements,Ts);
+    std::cout<<eskf.getPose()<<std::endl;
+
+    //pressureTesting = eskf.innovationPressureZ(xnominal, P, pressureValue, RpressureZ);
+    //injectionPressureTesting = eskf.updatePressureZ(xnominal, P, pressureValue, RpressureZ);
+    //dvlstatetesting = eskf.innovationDVL(xnominal, P, ZdvlValues, RDVL);
+    //injectionDVLTesting = eskf.updateDVL(xnominal, P, ZdvlValues, RDVL);
 
     //std::cout << injectionDVLTesting.pInject << std::endl;
-    std::cout << injectionDVLTesting.xInject << std::endl;
+    //std::cout << injectionDVLTesting.xInject << std::endl;
 
     //std::cout << dvlstatetesting.DVLH << std::endl;
     //std::cout << dvlstatetesting.DVLInnovation << std::endl;
@@ -124,6 +148,7 @@ int main()
     //injectiontesting = eskf.inject(xnominal, deltaX, P);
     //testing = eskf.discreteErrorMatrix(xnominal, accRectifiedMeasurements, gyroRectifiedMeasurements, Ts);
 
+    
     //std::cout << eskf.predictNominal(xnominal,accRectifiedMeasurements,gyroRectifiedMeasurements,Ts)<<std::endl;
     //std::cout << eskf.Aerr(xnominal,accRectifiedMeasurements,gyroRectifiedMeasurements)<<std::endl;
     //std::cout << eskf.Gerr(xnominal)<<std::endl;
@@ -134,5 +159,5 @@ int main()
     //std::cout << eskf.predictCovariance(xnominal,P,accRectifiedMeasurements,gyroRectifiedMeasurements,Ts) <<std::endl;
     //std::cout << injectiontesting.xInject << std::endl;
     //std::cout << statetesting.xNominalPrediction << std::endl;
- 
+    */
 }

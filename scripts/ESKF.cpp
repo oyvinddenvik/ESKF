@@ -2,17 +2,44 @@
 #include "common.h"
 
 
+
+ESKF::ESKF() : pgyroBias{0},paccBias{0},SpressureZ{0},poseStates(NOMINAL_STATE_SIZE),errorStateCovariance(ERROR_STATE_SIZE,ERROR_STATE_SIZE)
+{
+	
+	Racc.setZero();
+    RaccBias.setZero();
+    Rgyro.setZero();
+    RgyroBias.setZero();
+
+    Sa.setZero();
+    Sg.setZero();
+    Sdvl.setZero();
+    Sinc.setZero();
+   
+	D = blk3x3Diag(Racc, Rgyro, RaccBias, RgyroBias);
+
+	poseStates.setZero();
+	errorStateCovariance.setZero();
+
+}
+
+
 ESKF::ESKF(const Matrix3d& Racc, const Matrix3d& RaccBias, const Matrix3d& Rgyro, const Matrix3d& RgyroBias, const double& pgyroBias, const double& paccBias, const Matrix3d& Sa, const Matrix3d& Sg, const Matrix3d& Sdvl, const Matrix3d& Sinc)
-	:Racc{ Racc }, RaccBias{ RaccBias }, Rgyro{ Rgyro }, RgyroBias{ RgyroBias }, pgyroBias{ pgyroBias }, paccBias{ paccBias }, Sa{ Sa }, Sg{ Sg }, Sdvl{ Sdvl }, Sinc{ Sinc }
+	:Racc{ Racc }, RaccBias{ RaccBias }, Rgyro{ Rgyro }, RgyroBias{ RgyroBias }, pgyroBias{ pgyroBias }, paccBias{ paccBias }, Sa{ Sa }, Sg{ Sg }, Sdvl{ Sdvl}, poseStates(NOMINAL_STATE_SIZE), errorStateCovariance(ERROR_STATE_SIZE,ERROR_STATE_SIZE)
 {
 	D = blk3x3Diag(Racc, Rgyro, RaccBias, RgyroBias);
+	poseStates.setZero();
+	errorStateCovariance.setZero();
+
+	errorStateCovariance.setIdentity();
+	poseStates << 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16;
 }
-// Tested
+
 VectorXd ESKF::predictNominal(const VectorXd& xnominal, const Vector3d& accRectifiedMeasurements, const Vector3d& gyroRectifiedmeasurements, const double& Ts)
 {
 	
 	// Initilize
-	VectorXd xNextnominal(16); 
+	VectorXd xNextnominal(NOMINAL_STATE_SIZE); 
 	xNextnominal.setZero();
 
 	Vector3d dTheta = Vector3d::Zero();
@@ -34,11 +61,11 @@ VectorXd ESKF::predictNominal(const VectorXd& xnominal, const Vector3d& accRecti
 	
 
 	// Extract states
-	position = xnominal.block<3, 1>(0, 0);
-	velocity = xnominal.block<3, 1>(3, 0);
-	quaternion = xnominal.block<4, 1>(6, 0);
-	accBias = xnominal.block<3, 1>(10, 0);
-	gyroBias = xnominal.block<3, 1>(13, 0);
+	position = xnominal.block<NOMINAL_POSITION_STATE_SIZE, 1>(NOMINAL_POSITION_STATE_OFFSET, 0);
+	velocity = xnominal.block<NOMINAL_VELOCITY_STATE_SIZE, 1>(NOMINAL_VELOCITY_STATE_OFFSET, 0);
+	quaternion = xnominal.block<NOMINAL_QUATERNION_STATE_SIZE, 1>(NOMINAL_QUATERNION_STATE_OFFSET, 0);
+	accBias = xnominal.block<NOMINAL_ACC_BIAS_SIZE, 1>(NOMINAL_ACC_BIAS_STATE_OFFSET, 0);
+	gyroBias = xnominal.block<NOMINAL_GYRO_BIAS_SIZE, 1>(NOMINAL_GYRO_BIAS_STATE_OFFSET, 0);
 
 
 	// Get rotation matrix from quaternion
@@ -68,18 +95,18 @@ VectorXd ESKF::predictNominal(const VectorXd& xnominal, const Vector3d& accRecti
 	return xNextnominal;
 
 }
-// Tested
+
 MatrixXd ESKF::Aerr(const VectorXd& xnominal, const Vector3d& accRectifiedMeasurements, const Vector3d& gyroRectifiedmeasurements)
 {
 	// Initilize
-	MatrixXd A(15,15);
+	MatrixXd A(ERROR_STATE_SIZE,ERROR_STATE_SIZE);
 	A.setZero();
 	Matrix3d rotationMatrix = Matrix3d::Zero();
 	Vector4d quaternion = Vector4d::Zero();
 	Matrix3d identityMatrix = Matrix3d::Identity();
 
 
-	quaternion = xnominal.block<4, 1>(6, 0);
+	quaternion = xnominal.block<NOMINAL_QUATERNION_STATE_SIZE, 1>(NOMINAL_QUATERNION_STATE_OFFSET, 0);
 	rotationMatrix = quaternion2Rotationmatrix(quaternion);
 
 
@@ -97,19 +124,19 @@ MatrixXd ESKF::Aerr(const VectorXd& xnominal, const Vector3d& accRectifiedMeasur
 	A.block<3, 3>(6, 12) = A.block<3, 3>(6, 12) * Sg;
 
 	return A;
-} // Tested 
-// Tested
+} 
+
 MatrixXd ESKF::Gerr(const VectorXd& xnominal)
 {
 	// Initilize
-	MatrixXd Gerror(15, 12);
+	MatrixXd Gerror(ERROR_STATE_SIZE, 12);
 	Gerror.setZero();
 	Matrix3d rotationMatrix = Matrix3d::Zero();
 	Vector4d quaternion = Vector4d::Zero();
 	Matrix3d identityMatrix = Matrix3d::Identity();
 
 
-	quaternion = xnominal.block<4, 1>(6, 0);
+	quaternion = xnominal.block<NOMINAL_QUATERNION_STATE_SIZE, 1>(NOMINAL_QUATERNION_STATE_OFFSET, 0);
 	rotationMatrix = quaternion2Rotationmatrix(quaternion);
 
 	Gerror.block<3, 3>(3, 0) = -1.0 * rotationMatrix;
@@ -120,16 +147,16 @@ MatrixXd ESKF::Gerr(const VectorXd& xnominal)
 	return Gerror;
 
 }
-// Tested
+
 AdandGQGD ESKF::discreteErrorMatrix(const VectorXd& xnominal,const Vector3d& accRectifiedMeasurements,const Vector3d& gyroRectifiedmeasurements,const double& Ts)
 {
 	// Initilize
 	AdandGQGD errorMatrix;
 	MatrixXd vanLoan(30, 30);
 	MatrixXd vanLoanExponentional(30, 30);
-	MatrixXd zeros(15, 15);
-	MatrixXd A(15, 15);
-	MatrixXd G(15, 12);
+	MatrixXd zeros(ERROR_STATE_SIZE, ERROR_STATE_SIZE);
+	MatrixXd A(ERROR_STATE_SIZE, ERROR_STATE_SIZE);
+	MatrixXd G(ERROR_STATE_SIZE, 12);
 
 	A.setZero();
 	G.setZero();
@@ -148,15 +175,15 @@ AdandGQGD ESKF::discreteErrorMatrix(const VectorXd& xnominal,const Vector3d& acc
 
 	vanLoan = vanLoan * Ts;
 	vanLoanExponentional= vanLoan.exp();
-	errorMatrix.Ad = vanLoanExponentional.block<15, 15>(15, 15).transpose();
-	errorMatrix.GQGD = vanLoanExponentional.block<15, 15>(15, 15).transpose() * vanLoanExponentional.block<15, 15>(0, 15);
+	errorMatrix.Ad = vanLoanExponentional.block<ERROR_STATE_SIZE, ERROR_STATE_SIZE>(ERROR_STATE_SIZE, ERROR_STATE_SIZE).transpose();
+	errorMatrix.GQGD = vanLoanExponentional.block<ERROR_STATE_SIZE, ERROR_STATE_SIZE>(ERROR_STATE_SIZE, ERROR_STATE_SIZE).transpose() * vanLoanExponentional.block<ERROR_STATE_SIZE, ERROR_STATE_SIZE>(0, ERROR_STATE_SIZE);
 
 	return errorMatrix;
 }
-// Tested
+
 MatrixXd ESKF::predictCovariance(const VectorXd& xnominal,const MatrixXd& P,const Vector3d& accRectifiedMeasurements,const Vector3d& gyroRectifiedmeasurements,const double& Ts)
 {
-	MatrixXd Pprediction(15, 15);
+	MatrixXd Pprediction(ERROR_STATE_SIZE, ERROR_STATE_SIZE);
 	AdandGQGD errorMatrix;
 
 	Pprediction.setZero();
@@ -169,13 +196,13 @@ MatrixXd ESKF::predictCovariance(const VectorXd& xnominal,const MatrixXd& P,cons
 	return Pprediction;
 
 }
-// Tested
-StatePredictions ESKF::predict(const VectorXd& xnominal,const MatrixXd& P, Vector3d zAccMeasurements, Vector3d zGyroMeasurements,const double& Ts)
+
+void ESKF::predict(Vector3d zAccMeasurements, Vector3d zGyroMeasurements,const double& Ts)
 {
 	
-	StatePredictions predictions;
-	predictions.pPrediction.setZero();
-	predictions.xNominalPrediction.setZero();
+	StatesAndErrorCovariance predictions;
+	predictions.P.setZero();
+	predictions.X.setZero();
 
 	Vector3d accelerationRectified = Vector3d::Zero();
 	Vector3d gyroRectified = Vector3d::Zero();
@@ -186,21 +213,23 @@ StatePredictions ESKF::predict(const VectorXd& xnominal,const MatrixXd& P, Vecto
 	zAccMeasurements = Sa * zAccMeasurements;
 	zGyroMeasurements = Sg * zGyroMeasurements;
 
-	accBias = Sa * xnominal.block<3, 1>(10, 0);
-	gyroBias = Sg * xnominal.block<3, 1>(13, 0);
+	accBias = Sa * poseStates.block<NOMINAL_ACC_BIAS_SIZE, 1>(NOMINAL_ACC_BIAS_STATE_OFFSET, 0);
+	gyroBias = Sg * poseStates.block<NOMINAL_GYRO_BIAS_SIZE, 1>(NOMINAL_GYRO_BIAS_STATE_OFFSET, 0);
 
 	accelerationRectified = zAccMeasurements - accBias;
 	gyroRectified = zGyroMeasurements - gyroBias;
 
-	predictions.xNominalPrediction = predictNominal(xnominal, accelerationRectified, gyroRectified, Ts);
-	predictions.pPrediction = predictCovariance(xnominal, P, accelerationRectified, gyroRectified, Ts);
-	
-	return predictions;
+
+	predictions.X = predictNominal(poseStates, accelerationRectified, gyroRectified, Ts);
+	predictions.P = predictCovariance(poseStates, errorStateCovariance, accelerationRectified, gyroRectified, Ts);
+
+	poseStates = predictions.X;
+	errorStateCovariance = predictions.P;
 }
-// Tested
-InjectionStates ESKF::inject(const VectorXd& xnominal,const VectorXd& deltaX,const MatrixXd& P)
+
+StatesAndErrorCovariance ESKF::inject(const VectorXd& xnominal,const VectorXd& deltaX,const MatrixXd& P)
 {
-	MatrixXd Ginject(15, 15);
+	MatrixXd Ginject(ERROR_STATE_SIZE, ERROR_STATE_SIZE);
 	Ginject.setIdentity();
 	Matrix3d identityMatrix3x3 = Matrix3d::Identity();
 	Vector3d positionInjections = Vector3d::Zero();
@@ -209,17 +238,17 @@ InjectionStates ESKF::inject(const VectorXd& xnominal,const VectorXd& deltaX,con
 	Vector3d accelerationBiasInjections = Vector3d::Zero();
 	Vector3d gyroBiasInjections = Vector3d::Zero();
 	Vector4d quatRight = Vector4d::Zero();
-	InjectionStates injections;
-	injections.pInject.setZero();
-	injections.xInject.setZero();
+	StatesAndErrorCovariance injections;
+	injections.P.setZero();
+	injections.X.setZero();
 
 	quatRight << 1,
 				deltaX.block<3, 1>(6, 0) / 2.0;
 
 	
-	positionInjections = xnominal.block<3, 1>(0, 0) + deltaX.block<3, 1>(0, 0);
-	velocityInjections = xnominal.block<3, 1>(3, 0) + deltaX.block<3, 1>(3, 0);
-	quaternionInjections = quaternionHamiltonProduct(xnominal.block<4, 1>(6, 0), quatRight);
+	positionInjections = xnominal.block<NOMINAL_POSITION_STATE_SIZE, 1>(NOMINAL_POSITION_STATE_OFFSET, 0) + deltaX.block<3, 1>(0, 0);
+	velocityInjections = xnominal.block<NOMINAL_VELOCITY_STATE_SIZE, 1>(NOMINAL_VELOCITY_STATE_OFFSET, 0) + deltaX.block<3, 1>(3, 0);
+	quaternionInjections = quaternionHamiltonProduct(xnominal.block<NOMINAL_QUATERNION_STATE_SIZE, 1>(NOMINAL_QUATERNION_STATE_OFFSET, 0), quatRight);
 	accelerationBiasInjections = xnominal.block<3, 1>(10, 0) + deltaX.block<3, 1>(9, 0);
 	gyroBiasInjections = xnominal.block<3, 1>(13, 0) + deltaX.block<3, 1>(12, 0);
 
@@ -228,7 +257,7 @@ InjectionStates ESKF::inject(const VectorXd& xnominal,const VectorXd& deltaX,con
 	quaternionInjections = quaternionInjections / sqrt(quaternionInjections.array().square().sum());
 
 	
-	injections.xInject << positionInjections,
+	injections.X << positionInjections,
 						  velocityInjections,
 						  quaternionInjections,
 						  accelerationBiasInjections,
@@ -236,17 +265,18 @@ InjectionStates ESKF::inject(const VectorXd& xnominal,const VectorXd& deltaX,con
 	
 	
 	Ginject.block<3, 3>(6, 6) = identityMatrix3x3 - crossProductMatrix(0.5 * deltaX.block<3,1>(6, 0));
-	injections.pInject = Ginject * P * Ginject.transpose();
+	injections.P = Ginject * P * Ginject.transpose();
+
 
 	return injections;
 }
-// Tested
+
 InnovationPressureStates ESKF::innovationPressureZ(const VectorXd& xnominal,const MatrixXd& P,const double& zPressureZpos,const MatrixXd& RpressureZ)
 {
 	// Initilize
 	InnovationPressureStates pressureStates;
-	Matrix<double, 16, 15> X_deltaX;
-	Matrix<double, 1, 16> Hx;
+	Matrix<double, NOMINAL_STATE_SIZE, ERROR_STATE_SIZE> X_deltaX;
+	Matrix<double, 1, NOMINAL_STATE_SIZE> Hx;
 	Matrix<double, 1, 2> zero1x2Matrix;
 	Matrix<double, 1, 13> zero1x13Matrix;
 	MatrixXd Q_deltaT(4, 3);
@@ -286,47 +316,46 @@ InnovationPressureStates ESKF::innovationPressureZ(const VectorXd& xnominal,cons
 	X_deltaX.block<4, 3>(6, 6) = Q_deltaT;
 
 	pressureStates.pressureH = Hx * X_deltaX;
-	pressureStates.pressureInnovation = zPressureZpos - xnominal(2);
+	pressureStates.pressureInnovation = zPressureZpos - xnominal(StateMemberZ);
 	pressureStates.pressureInnovationCovariance = (pressureStates.pressureH * P * pressureStates.pressureH.transpose()) + RpressureZ;
 
 
 	return pressureStates;
 
 }
-// Tested
-InjectionStates ESKF::updatePressureZ(const VectorXd& xnominal,const MatrixXd& P,const double& zPressureZpos,const MatrixXd& RpressureZ)
+
+void ESKF::updatePressureZ(const double& zPressureZpos,const MatrixXd& RpressureZ)
 {
-	InjectionStates injections;
+	StatesAndErrorCovariance injections;
 	InnovationPressureStates pressureStates;
-	MatrixXd identity15x15(15,15);
-	MatrixXd kalmanGain(15, 1);
-	MatrixXd deltaX(15, 1);
-	MatrixXd pUpdate(15, 15);
+	MatrixXd identity15x15(ERROR_STATE_SIZE,ERROR_STATE_SIZE);
+	MatrixXd kalmanGain(ERROR_STATE_SIZE, 1);
+	MatrixXd deltaX(ERROR_STATE_SIZE, 1);
+	MatrixXd pUpdate(ERROR_STATE_SIZE, ERROR_STATE_SIZE);
 
 	identity15x15.setIdentity();
 	pressureStates.pressureH.setZero();
 	pressureStates.pressureInnovationCovariance.setZero();
 	pressureStates.pressureInnovation = 0;
-	injections.xInject.setZero();
-	injections.pInject.setZero();
+	injections.X.setZero();
+	injections.P.setZero();
 	kalmanGain.setZero();
 	deltaX.setZero();
 	pUpdate.setZero();
 
-	pressureStates = innovationPressureZ(xnominal, P, zPressureZpos, RpressureZ);
+	pressureStates = innovationPressureZ(poseStates,errorStateCovariance, zPressureZpos, RpressureZ);
 	
 
 	// ESKF Update step
-	kalmanGain = P * pressureStates.pressureH.transpose() * pressureStates.pressureInnovationCovariance.inverse();
+	kalmanGain = errorStateCovariance * pressureStates.pressureH.transpose() * pressureStates.pressureInnovationCovariance.inverse();
 	deltaX = kalmanGain * pressureStates.pressureInnovation;
-	pUpdate = (identity15x15 - (kalmanGain * pressureStates.pressureH)) * P;
-	injections = inject(xnominal, deltaX, pUpdate);
+	pUpdate = (identity15x15 - (kalmanGain * pressureStates.pressureH)) * errorStateCovariance;
+	injections = inject(poseStates, deltaX, pUpdate);
 
-
-	return injections;
-
+	poseStates = injections.X;
+	errorStateCovariance = injections.P;
 }
-// Tested
+
 InnovationDVLStates ESKF::innovationDVL(const VectorXd& xnominal,const MatrixXd& P,const Vector3d& zDVLvel,const Matrix3d& RDVL)
 {
 	InnovationDVLStates dvlStates;
@@ -337,7 +366,7 @@ InnovationDVLStates ESKF::innovationDVL(const VectorXd& xnominal,const MatrixXd&
 	double dx{ 0.000000001};
 	Matrix3d zero3x3Matrix = Matrix3d::Zero();
 	MatrixXd zero3x6Matrix(3, 6);
-	Matrix<double, 16, 15> X_deltaX;
+	Matrix<double, NOMINAL_STATE_SIZE, ERROR_STATE_SIZE> X_deltaX;
 	MatrixXd Q_deltaT(4, 3);
 	MatrixXd identity6x6Matrix(6, 6);
 
@@ -345,7 +374,7 @@ InnovationDVLStates ESKF::innovationDVL(const VectorXd& xnominal,const MatrixXd&
 	Matrix3d R_world_to_body = Matrix3d::Zero();
 	Matrix3d Hv = Matrix3d::Zero();
 	MatrixXd Hq(3, 4);
-	Matrix<double, 3, 16> Hx;
+	Matrix<double, 3, NOMINAL_STATE_SIZE> Hx;
 	Vector3d f = Vector3d::Zero();
 	MatrixXd jacobianMatrix(3, 4);
 
@@ -415,36 +444,35 @@ InnovationDVLStates ESKF::innovationDVL(const VectorXd& xnominal,const MatrixXd&
 
 	return dvlStates;
 }
-// Tested
-InjectionStates ESKF::updateDVL(const VectorXd& xnominal,const MatrixXd& P,const Vector3d& zDVLvel,const Matrix3d& RDVL)
+
+void ESKF::updateDVL(const Vector3d& zDVLvel,const Matrix3d& RDVL)
 {
-	InjectionStates injections;
+	StatesAndErrorCovariance injections;
 	InnovationDVLStates DVLstates;
-	MatrixXd identity15x15(15,15);
-	MatrixXd kalmanGain(15, 3);
-	MatrixXd deltaX(15, 1);
+	MatrixXd identity15x15(ERROR_STATE_SIZE,ERROR_STATE_SIZE);
+	MatrixXd kalmanGain(ERROR_STATE_SIZE, 3);
+	MatrixXd deltaX(ERROR_STATE_SIZE, 1);
 
-	MatrixXd pUpdate(15, 15);
+	MatrixXd pUpdate(ERROR_STATE_SIZE, ERROR_STATE_SIZE);
 
 
-	injections.pInject.setZero();
-	injections.xInject.setZero();
+	injections.P.setZero();
+	injections.X.setZero();
 	DVLstates.DVLH.setZero();
 	DVLstates.DVLInnovation.setZero();
 	DVLstates.DVLInnovationCovariance.setZero();
 	identity15x15.setIdentity();
 
-	DVLstates = innovationDVL(xnominal, P, zDVLvel, RDVL);
+	DVLstates = innovationDVL(poseStates, errorStateCovariance, zDVLvel, RDVL);
 
 
-	kalmanGain = P * DVLstates.DVLH.transpose() * DVLstates.DVLInnovationCovariance.inverse();
+	kalmanGain = errorStateCovariance * DVLstates.DVLH.transpose() * DVLstates.DVLInnovationCovariance.inverse();
 	deltaX = kalmanGain * DVLstates.DVLInnovation;
-	pUpdate = (identity15x15 - (kalmanGain * DVLstates.DVLH)) * P;
-	injections = inject(xnominal, deltaX, pUpdate);
+	pUpdate = (identity15x15 - (kalmanGain * DVLstates.DVLH)) * errorStateCovariance;
+	injections = inject(poseStates, deltaX, pUpdate);
 
-
-	return injections;
-
+	poseStates = injections.X;
+	errorStateCovariance = injections.P;
 }
 
 

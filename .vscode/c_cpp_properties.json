@@ -10,7 +10,9 @@
                 "/opt/ros/kinetic/include/**",
                 "/home/kjetil/catkin_ws/src/ESKF/include/**",
                 "/home/kjetil/catkin_ws/src/stim300_deprecated/drivers-imu_stim300/include/**",
-                "/usr/include/**"
+                "/usr/include/**",
+                "/home/vortex/sensor_fusion_ws/src/ESKF/include/**",
+                "${workspaceFolder}/include"
             ],
             "name": "ROS",
             "intelliSenseMode": "gcc-x64",
