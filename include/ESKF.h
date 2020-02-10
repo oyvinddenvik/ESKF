@@ -5,6 +5,8 @@
 #include <math.h>
 #include <unsupported/Eigen/MatrixFunctions>
 
+//#include "ros_node.h"
+
 using namespace Eigen;
 
 
@@ -83,6 +85,20 @@ struct InnovationDVLStates {
 	MatrixXd DVLH;
 };
 
+struct parametersInESKF 
+{
+    Matrix<double,3,3> R_acc;
+    Matrix<double,3,3> R_accBias;
+	Matrix<double,3,3> R_gyro;
+	Matrix<double,3,3> R_gyroBias;
+	double pgyroBias;
+	double paccBias;
+	Matrix<double,3,3> S_a;
+	Matrix<double,3,3> S_g;
+	Matrix<double,3,3> S_dvl;
+	Matrix<double,3,3> S_inc;
+};
+
 
 
 class ESKF
@@ -111,6 +127,13 @@ public:
 	void updatePressureZ(const double& zPressureZpos, const MatrixXd& RpressureZ);
 
 
+	void setParametersInESKF(const parametersInESKF& parameters);
+
+	const inline double getPaccBias() const
+	{
+		return paccBias;
+	}
+
 	const inline VectorXd getPose() const
 	{
 		//Vector3d position = Vector3d::Zero();
@@ -122,6 +145,7 @@ public:
 	{
 		return errorStateCovariance;
 	}
+
 	
 	
 

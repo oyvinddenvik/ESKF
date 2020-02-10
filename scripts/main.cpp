@@ -3,6 +3,8 @@
 #include"ros_node.h"
 #include <Eigen/Core>
 
+#include <std_msgs/Float64.h>
+
 
 using namespace Eigen;
 
@@ -27,17 +29,52 @@ structTest returnMultipleMatricies()
 
 
 
+
+
 int main(int argc, char *argv[])
 {
     
-    /*
+    
     ros::init(argc,argv,"eskf");
     ros::NodeHandle nh;
     ros::NodeHandle pnh("~");
     ESKF_Node eskf_node(nh,pnh);
     ros::spin();
     return 0;
+    
+
+   /*
+   const int& a = 2;
+   std::cout<<a<<std::endl;
+
+
+   Matrix<double,15,15> errorCovariance;
+   errorCovariance.setIdentity();
+   
+   const Matrix<double,6,6> &poseCovarianceTest = errorCovariance.block<6,6>(0,0);
+   
+   std::cout<<poseCovarianceTest<<std::endl;
+
+    const double *arrayOfPoseCovariance = poseCovarianceTest.data();
+
+    std::cout<< arrayOfPoseCovariance[1]<<std::endl;
+
+    for(int i = 0; i<36;i++)
+    {
+        std::cout << arrayOfPoseCovariance[i];
+    }
+    std::cout<<std::endl;
     */
+    
+    
+
+   //Matrix3d test = Matrix3d::Zero();
+
+   //double* arraytesting= test.data();
+
+   //arraytesting[0] = 2;
+
+   //std::cout<<arraytesting[0]<<std::endl;
    
        
    
