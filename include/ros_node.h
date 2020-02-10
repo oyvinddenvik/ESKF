@@ -8,18 +8,18 @@
 #include "nav_msgs/Odometry.h"
 
 
-const Eigen::Matrix3d R_ACC((Eigen::Matrix3d() << 2,0,0,0,2,0,0,0,2).finished());
-const Eigen::Matrix3d R_ACCBIAS((Eigen::Matrix3d() << 0.0001,0,0,0,0.0001,0,0,0,0.0001).finished());
-const Eigen::Matrix3d R_GYRO((Eigen::Matrix3d() << 0.0001,0,0,0,0.0001,0,0,0,0.0001).finished());
-const Eigen::Matrix3d R_GYROBIAS((Eigen::Matrix3d() << 0.0001,0,0,0,0.0001,0,0,0,0.0001).finished());
-constexpr double P_GYRO_BIAS{0.000001};
-constexpr double P_ACC_BIAS{0.000001};
-const Eigen::Matrix3d S_A((Eigen::Matrix3d() << 0.0001,0,0,0,0.0001,0,0,0,0.0001).finished());
-const Eigen::Matrix3d S_G((Eigen::Matrix3d() << 0.0001,0,0,0,0.0001,0,0,0,0.0001).finished());
+const Eigen::Matrix3d R_ACC((Eigen::Matrix3d() << 3,0,0,0,3,0,0,0,3).finished());
+const Eigen::Matrix3d R_ACCBIAS((Eigen::Matrix3d() << 6e-5,0,0,0,6e-5,0,0,0,6e-5).finished());
+const Eigen::Matrix3d R_GYRO((Eigen::Matrix3d() << 12e-3,0,0,0,12e-3,0,0,0,12e-3).finished());
+const Eigen::Matrix3d R_GYROBIAS((Eigen::Matrix3d() << 3e-7,0,0,0,3e-7,0,0,0,3e-7).finished());
+constexpr double P_GYRO_BIAS{0.0001};
+constexpr double P_ACC_BIAS{0.0001};
+const Eigen::Matrix3d S_A((Eigen::Matrix3d() << -0.9990,1.9804e-04,-0.0450,1.3553e-20,1.0,0.0044,0.0450,0.0044,-0.9990).finished());
+const Eigen::Matrix3d S_G((Eigen::Matrix3d() << -0.9990,1.9804e-04,-0.0450,1.3553e-20,1.0,0.0044,0.0450,0.0044,-0.9990).finished());
 const Eigen::Matrix3d S_DVL((Eigen::Matrix3d() << 0.0001,0,0,0,0.0001,0,0,0,0.0001).finished());
 const Eigen::Matrix3d S_INC((Eigen::Matrix3d() << 0.0001,0,0,0,0.0001,0,0,0,0.0001).finished());
 //const Eigen::VectorXd INITIAL_NOMINAL_STATE((Eigen::VectorXd() << 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15).finished());
-const Eigen::VectorXd INITIAL_NOMINAL_STATE = (Eigen::VectorXd(16) << 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16).finished();
+//const Eigen::VectorXd INITIAL_NOMINAL_STATE = (Eigen::VectorXd(16) << 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16).finished();
 //const Eigen::MatrixXd Initial_P =(Eigen::MatrixXd(2,2) << 1,2,3,4).finished();
 
 

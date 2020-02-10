@@ -30,9 +30,43 @@ ESKF::ESKF(const Matrix3d& Racc, const Matrix3d& RaccBias, const Matrix3d& Rgyro
 	D = blk3x3Diag(Racc, Rgyro, RaccBias, RgyroBias);
 	poseStates.setZero();
 	errorStateCovariance.setZero();
+	Matrix3d I_3x3 = Matrix3d::Identity();
+	Vector3d initialPosition = Vector3d::Zero();
+	Vector3d initialVelocity = Vector3d::Zero();
+	Vector4d initialQuat = Vector4d::Zero();
+	Vector3d initialAccBias = Vector3d::Zero();
+	Vector3d initialGyroBias = Vector3d::Zero();
+	Matrix3d initialPPos = Matrix3d::Zero();
+	Matrix3d initialPVel = Matrix3d::Zero();
+	Matrix3d initialPDq = Matrix3d::Zero();
+	Matrix3d initialPAccBias = Matrix3d::Zero();
+	Matrix3d initialPGyroBias = Matrix3d::Zero();
 
-	errorStateCovariance.setIdentity();
-	poseStates << 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16;
+	initialPosition << -1.96,0.061,0;
+	initialVelocity << 0,0,0;
+	initialQuat << 0.9935,0,0,-0.1134;
+	initialAccBias << 0,0,0;
+	initialGyroBias << 0,0,0;
+	initialPPos.diagonal() << 1e-9*1e-9,1e-9*1e-9,1e-9*1e-9;
+	initialPVel.diagonal() << 1e-4*1e-4,1e-4*1e-4,1e-4*1e-4;
+	initialPDq.diagonal() << 12e-3*12e-3,12e-3*12e-3,12e-3*12e-3;
+	initialPAccBias.diagonal() << 12e-9*12e-9,12e-9*12e-9,12e-9*12e-9;
+	initialPGyroBias.diagonal() << 3e-18*3e-18,3e-18*3e-18,3e-18*3e-18;
+	
+	errorStateCovariance.block<3,3>(0,0) = initialPPos;
+	errorStateCovariance.block<3,3>(3,3) = initialPVel;
+	errorStateCovariance.block<3,3>(6,6) = initialPDq;
+	errorStateCovariance.block<3,3>(9,9) = initialPAccBias;
+	errorStateCovariance.block<3,3>(12,12) = initialPGyroBias;
+
+	poseStates << initialPosition,
+				  initialVelocity,
+				  initialQuat,
+				  initialAccBias,
+				  initialGyroBias;	
+
+	//std::cout<<poseStates<<std::endl;
+	//std::cout<<errorStateCovariance<<std::endl;
 }
 
 VectorXd ESKF::predictNominal(const VectorXd& xnominal, const Vector3d& accRectifiedMeasurements, const Vector3d& gyroRectifiedmeasurements, const double& Ts)

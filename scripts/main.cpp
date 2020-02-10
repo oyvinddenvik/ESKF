@@ -30,14 +30,16 @@ structTest returnMultipleMatricies()
 int main(int argc, char *argv[])
 {
     
-    
+    /*
     ros::init(argc,argv,"eskf");
     ros::NodeHandle nh;
     ros::NodeHandle pnh("~");
     ESKF_Node eskf_node(nh,pnh);
     ros::spin();
     return 0;
-    
+    */
+   
+       
    
     /*
     MatrixXd INITIAL_P(15,15);
@@ -80,8 +82,7 @@ int main(int argc, char *argv[])
     xnominal << 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16;
     deltaX << 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15;
 
-    accRectifiedMeasurements << 1, 2, 3;
-    gyroRectifiedMeasurements << 1, 2, 3;
+    
 
     ZdvlValues << 1, 2, 3;
     RDVL.setIdentity();
@@ -110,9 +111,13 @@ int main(int argc, char *argv[])
     Sa.setIdentity();
     Sg.setIdentity();
 
-    ESKF eskf{ Racc,RaccBias,Rgyro,RgyroBias,pgyroBias,paccBias,Sa,Sg,Sdvl,Sinc};
-    
+    accRectifiedMeasurements << 4,5,2;
+    gyroRectifiedMeasurements<< 4,5,2;
+
+    ESKF eskf {R_ACC,R_ACCBIAS,R_GYRO,R_GYROBIAS,P_GYRO_BIAS,P_ACC_BIAS,S_A,S_G,S_DVL,S_INC};
+
     Racc = Racc * Ts;
+    
 
     std::cout<<eskf.getPose()<<std::endl;
     eskf.predict(accRectifiedMeasurements,gyroRectifiedMeasurements,Ts);
@@ -159,5 +164,6 @@ int main(int argc, char *argv[])
     //std::cout << eskf.predictCovariance(xnominal,P,accRectifiedMeasurements,gyroRectifiedMeasurements,Ts) <<std::endl;
     //std::cout << injectiontesting.xInject << std::endl;
     //std::cout << statetesting.xNominalPrediction << std::endl;
-    */
+   return 0;
+   */
 }

@@ -117,6 +117,11 @@ public:
 
 		return poseStates;
 	}
+
+	const inline MatrixXd getErrorCovariance() const
+	{
+		return errorStateCovariance;
+	}
 	
 	
 
