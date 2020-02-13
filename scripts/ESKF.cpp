@@ -14,6 +14,7 @@ ESKF::ESKF() : pgyroBias{0},paccBias{0},SpressureZ{0},poseStates(NOMINAL_STATE_S
     RaccBias.setZero();
     Rgyro.setZero();
     RgyroBias.setZero();
+	use_ENU_ = 0;
 
     Sa.setZero();
     Sg.setZero();
@@ -65,6 +66,7 @@ ESKF::ESKF() : pgyroBias{0},paccBias{0},SpressureZ{0},poseStates(NOMINAL_STATE_S
 ESKF::ESKF(const Matrix3d& Racc, const Matrix3d& RaccBias, const Matrix3d& Rgyro, const Matrix3d& RgyroBias, const double& pgyroBias, const double& paccBias, const Matrix3d& Sa, const Matrix3d& Sg, const Matrix3d& Sdvl, const Matrix3d& Sinc)
 	:Racc{ Racc }, RaccBias{ RaccBias }, Rgyro{ Rgyro }, RgyroBias{ RgyroBias }, pgyroBias{ pgyroBias }, paccBias{ paccBias }, Sa{ Sa }, Sg{ Sg }, Sdvl{ Sdvl}, poseStates(NOMINAL_STATE_SIZE), errorStateCovariance(ERROR_STATE_SIZE,ERROR_STATE_SIZE)
 {
+	use_ENU_=0;
 	D = blk3x3Diag(Racc, Rgyro, RaccBias, RgyroBias);
 	poseStates.setZero();
 	errorStateCovariance.setZero();
@@ -116,11 +118,15 @@ void ESKF::setParametersInESKF(const parametersInESKF& parameters)
 	RgyroBias = parameters.R_gyroBias;
 	Sdvl = parameters.S_dvl;
 	Sinc = parameters.S_inc;
-	Sa = parameters.S_a;
+	Sa = eulerToRotationMatrix(parameters.S_a);
+	//Sa = parameters.S_a;
 	Sg = parameters.S_g;
 	pgyroBias = parameters.pgyroBias;
 	paccBias = parameters.paccBias;
+	use_ENU_= parameters.use_ENU;
 }
+
+
 
 
 VectorXd ESKF::predictNominal(const VectorXd& xnominal, const Vector3d& accRectifiedMeasurements, const Vector3d& gyroRectifiedmeasurements, const double& Ts)

@@ -1,4 +1,5 @@
 #include"common.h"
+#include"math.h"
 
 
 Matrix3d crossProductMatrix(const Vector3d& n)
@@ -135,6 +136,36 @@ MatrixXd jacobianFdOfDVL(const VectorXd& fun,const VectorXd& x, const double& st
 	
 	return jacobianMatrix;
 
+}
+
+
+Matrix3d eulerToRotationMatrix(const Vector3d& eulerAngles)
+{
+	Matrix3d rotation_matrix = Matrix3d::Zero();
+	Matrix3d rotation_matrix_roll = Matrix3d::Zero();
+	Matrix3d rotation_matrix_pitch = Matrix3d::Zero();
+	Matrix3d rotation_matrix_yaw = Matrix3d::Zero();
+	
+	double roll{eulerAngles(0)};
+	double pitch{eulerAngles(1)};
+	double yaw{eulerAngles(2)};
+
+	rotation_matrix_roll << 1, 0 , 0,
+							0, cos(roll), -1.0*sin(roll),
+							0, sin(roll), cos(roll);
+
+	rotation_matrix_pitch << cos(pitch), 0, sin(pitch),
+							 0, 1, 0,
+							 -1.0*sin(pitch), 0, cos(pitch);
+
+	rotation_matrix_yaw << cos(yaw), -1.0*sin(yaw), 0,
+						   sin(yaw), cos(yaw), 0,
+						   0, 0, 1;
+
+	rotation_matrix = rotation_matrix_yaw*rotation_matrix_pitch*rotation_matrix_roll;
+						 						
+
+	return rotation_matrix;
 }
 
 

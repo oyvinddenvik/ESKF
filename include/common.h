@@ -25,5 +25,5 @@ Matrix3d crossProductMatrix(const Vector3d& n);
 Vector4d quaternionHamiltonProduct(VectorXd quatLeft, VectorXd quatRight);
 Matrix3d quaternion2Rotationmatrix(const Vector4d& quaternion);
 MatrixXd jacobianFdOfDVL(const VectorXd& fun, const VectorXd& x, const double& step, const Vector3d& velWorld);
-
+Matrix3d eulerToRotationMatrix(const Vector3d& eulerAngles);
 

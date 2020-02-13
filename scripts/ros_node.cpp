@@ -12,15 +12,21 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
     parameters.R_accBias.setZero();
     parameters.R_gyro.setZero();
     parameters.R_gyroBias.setZero();
+    parameters.R_acc.setZero();
     parameters.S_a.setZero();
     parameters.S_g.setZero();
     parameters.S_dvl.setZero();
     parameters.S_inc.setZero();
     parameters.paccBias = 0;
     parameters.pgyroBias = 0;
+    parameters.use_ENU = 0;
+    
+
     //Eigen::MatrixXd R_acc(3,3);
     //R_acc.setZero();
 
+
+    XmlRpc::XmlRpcValue R_dvlConfig;
     XmlRpc::XmlRpcValue R_accConfig;
     XmlRpc::XmlRpcValue R_accBiasConfig;
     XmlRpc::XmlRpcValue R_gyroConfig;
@@ -98,6 +104,9 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
         }
     }
 
+
+
+    
     if(ros::param::has("/S_a"))
     {
         ros::param::get("/S_a", S_aConfig);
@@ -105,15 +114,15 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
 
         for(int i = 0; i < matrix_size; i++)
         {
-            for(int j = 0; j <matrix_size; j++)
-            {
-              std::ostringstream ostr;
-              ostr << S_aConfig[matrix_size * i + j];
+            std::ostringstream ostr;
+              ostr << S_aConfig[i];
               std::istringstream istr(ostr.str());
-              istr >> parameters.S_a(i, j);
-            }
+              istr >> parameters.S_a(i);
         }
     }
+
+    //std::cout<<parameters.S_a<<std::endl;
+    
 
     if(ros::param::has("/S_g"))
     {
@@ -166,6 +175,25 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
         }
     }
 
+    
+
+      if(ros::param::has("/R_dvl"))
+    {
+        ros::param::get("/R_dvl", R_dvlConfig);
+        int matrix_size = parameters.R_dvl.rows();
+
+        for(int i = 0; i < matrix_size; i++)
+        {
+            for(int j = 0; j <matrix_size; j++)
+            {
+              std::ostringstream ostr;
+              ostr << R_dvlConfig[matrix_size * i + j];
+              std::istringstream istr(ostr.str());
+              istr >> parameters.R_dvl(i, j);
+            }
+        }
+    }
+
     if(ros::param::has("/p_gyroBias"))
     {
         ros::param::get("/p_gyroBias", parameters.pgyroBias);
@@ -178,7 +206,12 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
 
     // Set default values
 
+    if(ros::param::has("/use_ENU"))
+    {
+        ros::param::get("/use_ENU", parameters.use_ENU);
+    }
 
+    std::cout<<parameters.use_ENU<<std::endl;
 
     return parameters;
 
@@ -187,11 +220,16 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
 
 ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh) : nh_{pnh}, init_{false}   
 {
+    R_dvl_.setZero();
+
     const parametersInESKF parameters = loadParametersFromYamlFile(); 
-    
     eskf_.setParametersInESKF(parameters);
 
-    std::cout<<eskf_.getPaccBias()<<std::endl;
+    R_dvl_ = parameters.R_dvl;
+
+    std::cout<<R_dvl_<<std::endl;
+
+    //std::cout<<eskf_.getS_a()<<std::endl;
     
     ROS_INFO("Parameters set!");
 
@@ -199,7 +237,9 @@ ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh) : nh
     ROS_INFO("Subscribing to IMU /imu/data_raw");
     // Subscribe to IMU
     subscribeIMU_ = nh_.subscribe<sensor_msgs::Imu>("/imu/data_raw",1000,&ESKF_Node::imuCallback,this, ros::TransportHints().tcpNoDelay(true));
-
+    // Subscribe to DVL
+    ROS_INFO("Subscribing to DVL /manta/dvl");
+    subcribeDVL_ = nh_.subscribe<nav_msgs::Odometry>("/manta/dvl",1000,&ESKF_Node::dvlCallback,this,ros::TransportHints().tcpNoDelay(true));
 
     ROS_INFO("Publishing State");
     publishPose_ = nh_.advertise<nav_msgs::Odometry>("pose",1);
@@ -207,11 +247,6 @@ ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh) : nh
     
     pubTImer_= nh_.createTimer(ros::Duration(1.0f/publish_rate), &ESKF_Node::publishPoseState, this);
 }
-
-
-
-
-
 
 
 
@@ -235,6 +270,20 @@ void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
     //ROS_INFO("Acceleration_x: %f",imu_Message_data->linear_acceleration.x);
     eskf_.predict(raw_acceleration_measurements,raw_gyro_measurements,Ts);       
               
+}
+
+// DVL subscriber
+void ESKF_Node::dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data)
+{
+    Vector3d raw_dvl_measurements = Vector3d::Zero();
+
+
+    raw_dvl_measurements << dvl_Message_data->twist.twist.linear.x,
+                            dvl_Message_data->twist.twist.linear.y,
+                            dvl_Message_data->twist.twist.linear.z;
+    
+    ROS_INFO("Velocity_x: %f",dvl_Message_data->twist.twist.linear.x);
+    //eskf_.updateDVL(raw_dvl_measurements,R_dvl);
 }
 
 

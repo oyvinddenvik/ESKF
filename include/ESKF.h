@@ -91,12 +91,15 @@ struct parametersInESKF
     Matrix<double,3,3> R_accBias;
 	Matrix<double,3,3> R_gyro;
 	Matrix<double,3,3> R_gyroBias;
+	Matrix<double,3,3> R_dvl;
 	double pgyroBias;
 	double paccBias;
-	Matrix<double,3,3> S_a;
+	Vector3d S_a;
 	Matrix<double,3,3> S_g;
 	Matrix<double,3,3> S_dvl;
 	Matrix<double,3,3> S_inc;
+	
+	bool use_ENU;
 };
 
 
@@ -129,15 +132,55 @@ public:
 
 	void setParametersInESKF(const parametersInESKF& parameters);
 
-	const inline double getPaccBias() const
+	const inline Matrix3d getS_a() const
 	{
-		return paccBias;
+		return Sa;
+	}
+
+	const inline Vector3d getPosition() const
+	{
+		Matrix3d R_ned_to_enu = Matrix3d::Zero();
+		Vector3d position = Vector3d::Zero();
+
+		R_ned_to_enu << 0,1,0,
+						1,0,0,
+						0,0,-1;
+		 
+		position = poseStates.block<NOMINAL_POSITION_STATE_SIZE,1>(NOMINAL_QUATERNION_STATE_OFFSET,0);
+
+		if(use_ENU_)
+		{
+			return R_ned_to_enu*position;
+		}
+		else
+		{
+			return position;
+		}
+	}
+	const inline Vector3d getVelocity() const
+	{
+		Matrix3d R_ned_to_enu = Matrix3d::Zero();
+		Vector3d velocity = Vector3d::Zero();
+
+		R_ned_to_enu << 0,1,0,
+						1,0,0,
+						0,0,-1;
+		 
+		velocity = poseStates.block<NOMINAL_VELOCITY_STATE_SIZE, 1>(NOMINAL_VELOCITY_STATE_OFFSET, 0);
+
+		if(use_ENU_)
+		{
+			return R_ned_to_enu*velocity;
+		}
+		else
+		{
+			return velocity;
+		}
+		 
 	}
 
 	const inline VectorXd getPose() const
 	{
-		//Vector3d position = Vector3d::Zero();
-
 		return poseStates;
 	}
 
@@ -151,6 +194,7 @@ public:
 
 
 private:
+	bool use_ENU_;
 	double pgyroBias;
 	double paccBias;
 

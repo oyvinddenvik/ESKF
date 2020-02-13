@@ -44,7 +44,9 @@ private:
     ros::NodeHandle nh_;
     bool init_;
 
-    
+    Matrix3d R_dvl_;
+
+
     //VectorXd initialNominalState_;
     //Matrix<double,ERROR_STATE_SIZE,ERROR_STATE_SIZE> initialP_;
    
@@ -56,6 +58,7 @@ private:
     parametersInESKF loadParametersFromYamlFile();
 
     // ROS subscribers
+    ros::Subscriber subcribeDVL_;
     ros::Subscriber subscribeIMU_;
     ros::Timer pubTImer_;
 
@@ -66,6 +69,7 @@ private:
 
     // Callbacks
     void imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data);
+    void dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data);
     void publishPoseState(const ros::TimerEvent&);
 
 };

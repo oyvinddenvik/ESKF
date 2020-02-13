@@ -42,8 +42,19 @@ int main(int argc, char *argv[])
     ros::spin();
     return 0;
     
-
+   
    /*
+   Vector3d eulerangles = Vector3d::Zero();
+   Matrix3d rotation_matrix = Matrix3d::Zero();
+    // Roll, pitch, yaw
+   eulerangles<<3.141, 0, 3.141;
+
+    std::cout<<eulerToRotationMatrix(eulerangles)<<std::endl;
+   
+   
+
+
+
    const int& a = 2;
    std::cout<<a<<std::endl;
 
