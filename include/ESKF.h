@@ -94,11 +94,12 @@ struct parametersInESKF
 	Matrix<double,3,3> R_dvl;
 	double pgyroBias;
 	double paccBias;
-	Vector3d S_a;
+	//Vector3d S_a;
+	Matrix<double,3,3> S_a;
 	Matrix<double,3,3> S_g;
 	Matrix<double,3,3> S_dvl;
 	Matrix<double,3,3> S_inc;
-	
+	Matrix<double,1,1> R_pressureZ;
 	bool use_ENU;
 };
 

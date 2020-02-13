@@ -19,8 +19,8 @@ constexpr double P_GYRO_BIAS{0.0001};
 constexpr double P_ACC_BIAS{0.0001};
 const Eigen::Matrix3d S_A((Eigen::Matrix3d() << -0.9990,1.9804e-04,-0.0450,1.3553e-20,1.0,0.0044,0.0450,0.0044,-0.9990).finished());
 const Eigen::Matrix3d S_G((Eigen::Matrix3d() << -0.9990,1.9804e-04,-0.0450,1.3553e-20,1.0,0.0044,0.0450,0.0044,-0.9990).finished());
-const Eigen::Matrix3d S_DVL((Eigen::Matrix3d() << 0.0001,0,0,0,0.0001,0,0,0,0.0001).finished());
-const Eigen::Matrix3d S_INC((Eigen::Matrix3d() << 0.0001,0,0,0,0.0001,0,0,0,0.0001).finished());
+const Eigen::Matrix3d S_DVL((Eigen::Matrix3d() << 1.0,0,0,0,1.0,0,0,0,1.0).finished());
+const Eigen::Matrix3d S_INC((Eigen::Matrix3d() << -0.9990,1.9804e-04,-0.0450,1.3553e-20,1.0,0.0044,0.0450,0.0044,-0.9990).finished());
 //const Eigen::VectorXd INITIAL_NOMINAL_STATE((Eigen::VectorXd() << 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15).finished());
 //const Eigen::VectorXd INITIAL_NOMINAL_STATE = (Eigen::VectorXd(16) << 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16).finished();
 //const Eigen::MatrixXd Initial_P =(Eigen::MatrixXd(2,2) << 1,2,3,4).finished();
@@ -45,6 +45,7 @@ private:
     bool init_;
 
     Matrix3d R_dvl_;
+    Matrix<double,1,1> R_pressureZ_;
 
 
     //VectorXd initialNominalState_;
@@ -60,6 +61,7 @@ private:
     // ROS subscribers
     ros::Subscriber subcribeDVL_;
     ros::Subscriber subscribeIMU_;
+    ros::Subscriber subscribePressureZ_;
     ros::Timer pubTImer_;
 
 
@@ -71,6 +73,7 @@ private:
     void imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data);
     void dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data);
     void publishPoseState(const ros::TimerEvent&);
+    void pressureZCallback(const nav_msgs::Odometry::ConstPtr& pressureZ_Message_data);
 
 };
 

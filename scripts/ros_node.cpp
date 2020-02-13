@@ -12,7 +12,8 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
     parameters.R_accBias.setZero();
     parameters.R_gyro.setZero();
     parameters.R_gyroBias.setZero();
-    parameters.R_acc.setZero();
+    parameters.R_dvl.setZero();
+    parameters.R_pressureZ.setZero();
     parameters.S_a.setZero();
     parameters.S_g.setZero();
     parameters.S_dvl.setZero();
@@ -27,6 +28,7 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
 
 
     XmlRpc::XmlRpcValue R_dvlConfig;
+    XmlRpc::XmlRpcValue R_pressureZConfig;
     XmlRpc::XmlRpcValue R_accConfig;
     XmlRpc::XmlRpcValue R_accBiasConfig;
     XmlRpc::XmlRpcValue R_gyroConfig;
@@ -106,7 +108,7 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
 
 
 
-    
+    /*
     if(ros::param::has("/S_a"))
     {
         ros::param::get("/S_a", S_aConfig);
@@ -120,9 +122,26 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
               istr >> parameters.S_a(i);
         }
     }
-
+    */
     //std::cout<<parameters.S_a<<std::endl;
     
+    if(ros::param::has("/S_a"))
+    {
+        ros::param::get("/S_a", S_aConfig);
+        int matrix_size = parameters.S_a.rows();
+
+        for(int i = 0; i < matrix_size; i++)
+        {
+            for(int j = 0; j <matrix_size; j++)
+            {
+              std::ostringstream ostr;
+              ostr << S_aConfig[matrix_size * i + j];
+              std::istringstream istr(ostr.str());
+              istr >> parameters.S_a(i, j);
+            }
+        }
+    }
+
 
     if(ros::param::has("/S_g"))
     {
@@ -211,7 +230,27 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
         ros::param::get("/use_ENU", parameters.use_ENU);
     }
 
-    std::cout<<parameters.use_ENU<<std::endl;
+    //std::cout<<parameters.use_ENU<<std::endl;
+    /*
+    if(ros::param::has("/R_pressureZ"))
+    {
+        ros::param::get("/R_pressureZ", parameters.R_pressureZ);
+    }
+    */
+
+    if(ros::param::has("/R_pressureZ"))
+    {
+        ros::param::get("/R_pressureZ", R_pressureZConfig);
+        int matrix_size = parameters.R_pressureZ.rows();
+
+        for(int i = 0; i < matrix_size; i++)
+        {
+            std::ostringstream ostr;
+              ostr << R_pressureZConfig[i];
+              std::istringstream istr(ostr.str());
+              istr >> parameters.R_pressureZ(i);
+        }
+    }
 
     return parameters;
 
@@ -221,13 +260,22 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
 ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh) : nh_{pnh}, init_{false}   
 {
     R_dvl_.setZero();
+    R_pressureZ_.setZero();
+
+    //eskf_{R_ACC,R_ACCBIAS,R_GYRO,R_GYROBIAS,P_GYRO_BIAS,P_ACC_BIAS,S_A,S_G,S_DVL,S_INC}
+
+    //std::cout<<R_dvl_<<std::endl;
 
     const parametersInESKF parameters = loadParametersFromYamlFile(); 
     eskf_.setParametersInESKF(parameters);
 
-    R_dvl_ = parameters.R_dvl;
+    //std::cout<<eskf_.getS_a()<<std::endl;
 
-    std::cout<<R_dvl_<<std::endl;
+    R_dvl_ = parameters.R_dvl;
+    R_pressureZ_=parameters.R_pressureZ;
+
+    //std::cout<<R_dvl_<<std::endl;
+    std::cout<<R_pressureZ_<<std::endl;
 
     //std::cout<<eskf_.getS_a()<<std::endl;
     
@@ -240,6 +288,10 @@ ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh) : nh
     // Subscribe to DVL
     ROS_INFO("Subscribing to DVL /manta/dvl");
     subcribeDVL_ = nh_.subscribe<nav_msgs::Odometry>("/manta/dvl",1000,&ESKF_Node::dvlCallback,this,ros::TransportHints().tcpNoDelay(true));
+    // Subscribe to Pressure sensor
+    ROS_INFO("Subscribing to Pressure Sensor /manta/pressureZ");
+    subscribePressureZ_=nh_.subscribe<nav_msgs::Odometry>("/manta/pressureZ",1000,&ESKF_Node::pressureZCallback,this,ros::TransportHints().tcpNoDelay(true));
+
 
     ROS_INFO("Publishing State");
     publishPose_ = nh_.advertise<nav_msgs::Odometry>("pose",1);
@@ -282,8 +334,18 @@ void ESKF_Node::dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data
                             dvl_Message_data->twist.twist.linear.y,
                             dvl_Message_data->twist.twist.linear.z;
     
-    ROS_INFO("Velocity_x: %f",dvl_Message_data->twist.twist.linear.x);
-    //eskf_.updateDVL(raw_dvl_measurements,R_dvl);
+    //ROS_INFO("Velocity_z: %f",dvl_Message_data->twist.twist.linear.z);
+    eskf_.updateDVL(raw_dvl_measurements,R_dvl_);
+}
+
+
+void ESKF_Node::pressureZCallback(const nav_msgs::Odometry::ConstPtr& pressureZ_Message_data)
+{
+    const double raw_pressure_z = pressureZ_Message_data->pose.pose.position.z;
+
+    //const double R_pressureZ = 2.2500;
+
+    eskf_.updatePressureZ(raw_pressure_z,R_pressureZ_);
 }
 
 

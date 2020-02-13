@@ -118,8 +118,8 @@ void ESKF::setParametersInESKF(const parametersInESKF& parameters)
 	RgyroBias = parameters.R_gyroBias;
 	Sdvl = parameters.S_dvl;
 	Sinc = parameters.S_inc;
-	Sa = eulerToRotationMatrix(parameters.S_a);
-	//Sa = parameters.S_a;
+	//Sa = eulerToRotationMatrix(parameters.S_a);
+	Sa = parameters.S_a;
 	Sg = parameters.S_g;
 	pgyroBias = parameters.pgyroBias;
 	paccBias = parameters.paccBias;
