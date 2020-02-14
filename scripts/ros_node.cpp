@@ -3,7 +3,14 @@
 #include<Eigen/Core>
 #include"ros_node.h"
 
+const Matrix3d returnStaticRotationFromIMUtoBodyFrame(const Vector3d& roll_pitch_yaw_NED_and_alignment_corrected)
+{
+    Matrix3d static_S_a = Matrix3d::Zero();
 
+    static_S_a = eulerToRotationMatrix(roll_pitch_yaw_NED_and_alignment_corrected);
+
+    return static_S_a;
+}
 
 parametersInESKF ESKF_Node::loadParametersFromYamlFile()
 {
@@ -257,30 +264,24 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
 }
 
 
-ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh) : nh_{pnh}, init_{false}   
+ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh) : nh_{pnh}, init_{false}, eskf_{R_ACC,R_ACCBIAS,R_GYRO,R_GYROBIAS,P_GYRO_BIAS,P_ACC_BIAS,returnStaticRotationFromIMUtoBodyFrame(roll_pitch_yaw_NED_and_alignment_corrected),returnStaticRotationFromIMUtoBodyFrame(roll_pitch_yaw_NED_and_alignment_corrected),S_DVL,S_INC}   
 {
     R_dvl_.setZero();
     R_pressureZ_.setZero();
 
-    //eskf_{R_ACC,R_ACCBIAS,R_GYRO,R_GYROBIAS,P_GYRO_BIAS,P_ACC_BIAS,S_A,S_G,S_DVL,S_INC}
-
-    //std::cout<<R_dvl_<<std::endl;
-
-    const parametersInESKF parameters = loadParametersFromYamlFile(); 
-    eskf_.setParametersInESKF(parameters);
-
-    //std::cout<<eskf_.getS_a()<<std::endl;
-
-    R_dvl_ = parameters.R_dvl;
-    R_pressureZ_=parameters.R_pressureZ;
-
-    //std::cout<<R_dvl_<<std::endl;
-    std::cout<<R_pressureZ_<<std::endl;
-
     //std::cout<<eskf_.getS_a()<<std::endl;
     
-    ROS_INFO("Parameters set!");
 
+    
+    //const parametersInESKF parameters = loadParametersFromYamlFile(); 
+    //eskf_.setParametersInESKF(parameters);
+
+    //R_dvl_ = parameters.R_dvl;
+    //R_pressureZ_=parameters.R_pressureZ;
+    
+
+    
+    ROS_INFO("Parameters set!");
     int publish_rate{125}; // Change this to include params
     ROS_INFO("Subscribing to IMU /imu/data_raw");
     // Subscribe to IMU
@@ -335,7 +336,7 @@ void ESKF_Node::dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data
                             dvl_Message_data->twist.twist.linear.z;
     
     //ROS_INFO("Velocity_z: %f",dvl_Message_data->twist.twist.linear.z);
-    eskf_.updateDVL(raw_dvl_measurements,R_dvl_);
+    eskf_.updateDVL(raw_dvl_measurements,R_DVL);
 }
 
 
@@ -345,7 +346,7 @@ void ESKF_Node::pressureZCallback(const nav_msgs::Odometry::ConstPtr& pressureZ_
 
     //const double R_pressureZ = 2.2500;
 
-    eskf_.updatePressureZ(raw_pressure_z,R_pressureZ_);
+    eskf_.updatePressureZ(raw_pressure_z,R_PRESSUREZ);
 }
 
 
@@ -353,22 +354,29 @@ void ESKF_Node::publishPoseState(const ros::TimerEvent&)
 {
     nav_msgs::Odometry odom_msg;
     static size_t trace_id{0};
-    const VectorXd& pose = eskf_.getPose();
+
+    // ENU
+    const Vector3d& ENUposition = eskf_.getPositionInENU();
+    const Vector3d& ENUVelocity = eskf_.getVelocityInENU();
+
+    
+    // NED
+    const VectorXd& NEDpose = eskf_.getPose();
     const MatrixXd& errorCovariance = eskf_.getErrorCovariance();
 
     odom_msg.header.frame_id = "/eskf_link";
     odom_msg.header.seq = trace_id++;
     odom_msg.header.stamp = ros::Time::now();
-    odom_msg.pose.pose.position.x = pose(StateMemberX);
-    odom_msg.pose.pose.position.y = pose(StateMemberY);
-    odom_msg.pose.pose.position.z = pose(StateMemberZ);
-    odom_msg.twist.twist.linear.x = pose(StateMemberVx);
-    odom_msg.twist.twist.linear.y = pose(StateMemberVy);
-    odom_msg.twist.twist.linear.z = pose(StateMemberVz);
-    odom_msg.pose.pose.orientation.w = pose(StateMemberQw);
-    odom_msg.pose.pose.orientation.x = pose(StateMemberQx);
-    odom_msg.pose.pose.orientation.y = pose(StateMemberQy);
-    odom_msg.pose.pose.orientation.z = pose(StateMemberQz);
+    odom_msg.pose.pose.position.x = ENUposition(StateMemberX); //NEDpose(StateMemberX);
+    odom_msg.pose.pose.position.y = ENUposition(StateMemberY); //NEDpose(StateMemberY)
+    odom_msg.pose.pose.position.z = ENUposition(StateMemberZ); //NEDpose(StateMemberZ);
+    odom_msg.twist.twist.linear.x = ENUVelocity(0); //NEDpose(StateMemberVx);
+    odom_msg.twist.twist.linear.y = ENUVelocity(1); //NEDpose(StateMemberVy);
+    odom_msg.twist.twist.linear.z = ENUVelocity(2); //NEDpose(StateMemberVz);
+    odom_msg.pose.pose.orientation.w = NEDpose(StateMemberQw);
+    odom_msg.pose.pose.orientation.x = NEDpose(StateMemberQx);
+    odom_msg.pose.pose.orientation.y = NEDpose(StateMemberQy);
+    odom_msg.pose.pose.orientation.z = NEDpose(StateMemberQz);
     //odom_msg.pose.covariance
 
     //loadParametersFromYamlFile();

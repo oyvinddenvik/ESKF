@@ -3,6 +3,7 @@
 #include <iostream>
 #include <math.h>
 
+constexpr long double PI{3.1415926535};
 
 using namespace Eigen;
 
@@ -26,4 +27,3 @@ Vector4d quaternionHamiltonProduct(VectorXd quatLeft, VectorXd quatRight);
 Matrix3d quaternion2Rotationmatrix(const Vector4d& quaternion);
 MatrixXd jacobianFdOfDVL(const VectorXd& fun, const VectorXd& x, const double& step, const Vector3d& velWorld);
 Matrix3d eulerToRotationMatrix(const Vector3d& eulerAngles);
-

@@ -2,6 +2,7 @@
 #include"math.h"
 
 
+
 Matrix3d crossProductMatrix(const Vector3d& n)
 {
 	Matrix3d skewMatrix = Matrix3d::Zero();
@@ -83,11 +84,6 @@ MatrixXd blk3x3Diag(const Matrix3d& matrixA, const Matrix3d& matrixB, const Matr
 
 	return bdm;
 }
-
-
-
-
-
 
 
 Matrix3d quaternion2Rotationmatrix(const Vector4d& quaternion)

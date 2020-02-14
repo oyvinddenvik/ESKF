@@ -2,31 +2,12 @@
 #include"ESKF.h"
 #include"ros_node.h"
 #include <Eigen/Core>
+#include <math.h>
 
 #include <std_msgs/Float64.h>
 
 
 using namespace Eigen;
-
-struct structTest {
-    Matrix<double, 3, 3> Ad;
-    Matrix<double, 3, 3> Bd;
-};
-
-structTest returnMultipleMatricies()
-{
-    structTest testMatrix;
-
-    testMatrix.Ad.setZero();
-    testMatrix.Bd.setZero();
-
-    testMatrix.Ad << 1, 2, 3, 4, 5, 6, 7, 8, 9;
-    testMatrix.Bd << 1, 2, 3, 4, 5, 6, 7, 8, 9;
-
-    return testMatrix;
-}
-
-
 
 
 
@@ -42,7 +23,14 @@ int main(int argc, char *argv[])
     ros::spin();
     return 0;
     
-   
+
+    
+    
+
+    //std::cout<<returnStaticRotationFromIMUtoBodyFrame(roll_pitch_yaw_NED_and_alignment_corrected)<<std::endl;
+    
+
+    
    /*
    Vector3d eulerangles = Vector3d::Zero();
    Matrix3d rotation_matrix = Matrix3d::Zero();

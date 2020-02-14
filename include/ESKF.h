@@ -55,17 +55,6 @@ struct AdandGQGD {
 	Matrix<double, ERROR_STATE_SIZE,ERROR_STATE_SIZE> GQGD; //(15x15)
 };
 
-/*
-struct StatePredictions {
-	Matrix<double,NumberOfNominalStates,1> xNominalPrediction;				 // (16x1)
-	Matrix<double,NumberOfErrorStates,NumberOfErrorStates> pPrediction;		 // (15x15)
-};
-
-struct InjectionStates {
-	Matrix<double, NumberOfNominalStates,1> xInject;				  // (16x1) 
-	Matrix<double, NumberOfErrorStates,NumberOfErrorStates> pInject;  // (15x15)
-};
-*/
 
 struct StatesAndErrorCovariance {
 	Matrix<double,NOMINAL_STATE_SIZE,1> X;
@@ -92,6 +81,7 @@ struct parametersInESKF
 	Matrix<double,3,3> R_gyro;
 	Matrix<double,3,3> R_gyroBias;
 	Matrix<double,3,3> R_dvl;
+	Matrix<double,1,1> R_pressureZ;
 	double pgyroBias;
 	double paccBias;
 	//Vector3d S_a;
@@ -99,7 +89,7 @@ struct parametersInESKF
 	Matrix<double,3,3> S_g;
 	Matrix<double,3,3> S_dvl;
 	Matrix<double,3,3> S_inc;
-	Matrix<double,1,1> R_pressureZ;
+	
 	bool use_ENU;
 };
 
@@ -138,7 +128,7 @@ public:
 		return Sa;
 	}
 
-	const inline Vector3d getPosition() const
+	const inline Vector3d getPositionInENU() const
 	{
 		Matrix3d R_ned_to_enu = Matrix3d::Zero();
 		Vector3d position = Vector3d::Zero();
@@ -147,8 +137,10 @@ public:
 						1,0,0,
 						0,0,-1;
 		 
-		position = poseStates.block<NOMINAL_POSITION_STATE_SIZE,1>(NOMINAL_QUATERNION_STATE_OFFSET,0);
+		position = poseStates.block<NOMINAL_POSITION_STATE_SIZE,1>(NOMINAL_POSITION_STATE_OFFSET,0);
 
+		return R_ned_to_enu*position;
+		/*
 		if(use_ENU_)
 		{
 			return R_ned_to_enu*position;
@@ -157,8 +149,9 @@ public:
 		{
 			return position;
 		}
+		*/
 	}
-	const inline Vector3d getVelocity() const
+	const inline Vector3d getVelocityInENU() const
 	{
 		Matrix3d R_ned_to_enu = Matrix3d::Zero();
 		Vector3d velocity = Vector3d::Zero();
@@ -169,6 +162,8 @@ public:
 		 
 		velocity = poseStates.block<NOMINAL_VELOCITY_STATE_SIZE, 1>(NOMINAL_VELOCITY_STATE_OFFSET, 0);
 
+		return R_ned_to_enu*velocity;
+		/*
 		if(use_ENU_)
 		{
 			return R_ned_to_enu*velocity;
@@ -177,6 +172,7 @@ public:
 		{
 			return velocity;
 		}
+		*/
 		 
 	}
 
