@@ -6,7 +6,7 @@
 	<node 
 	pkg = "driver_stim300"
 	type = "stim300_driver_node"
-	name = "stim300_driver"'
+	name = "stim300_driver"
 	args="/dev/ttyUSB0"
 	/>
 
