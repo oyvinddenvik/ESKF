@@ -26,7 +26,7 @@ const Eigen::MatrixXd R_PRESSUREZ((Eigen::MatrixXd(1,1)<< 2.2500).finished());
 
 
 const Eigen::Vector3d IMURPYTONED((Eigen::Vector3d() <<0.0,M_PI,0.0).finished());
-const Eigen::Vector3d IMUALIGNMENT((Eigen::Vector3d() <<-0.004397,0.0450556,0).finished());
+const Eigen::Vector3d IMUALIGNMENT((Eigen::Vector3d() <<-0.004635,0.009897,0).finished()); // Roll -0.004397 , pitch 0.0450556 , yaw 
 
 
 const Vector3d roll_pitch_yaw_NED_and_alignment_corrected = IMURPYTONED + IMUALIGNMENT; 
