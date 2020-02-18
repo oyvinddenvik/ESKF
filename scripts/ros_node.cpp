@@ -27,9 +27,13 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
     parameters.S_inc.setZero();
     parameters.paccBias = 0;
     parameters.pgyroBias = 0;
-    parameters.use_ENU = 0;
-    
+    parameters.use_ENU = false;
+    parameters.initial_pose.setZero();
+    parameters.initial_covariance.setZero();
+    //parameters.initial_pose(16);
+    //parameters.initial_pose.setZero();
 
+    //std::cout<<parameters.initial_pose<<std::endl;
     //Eigen::MatrixXd R_acc(3,3);
     //R_acc.setZero();
 
@@ -44,6 +48,9 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
     XmlRpc::XmlRpcValue S_gConfig;
     XmlRpc::XmlRpcValue S_dvlConfig;
     XmlRpc::XmlRpcValue S_incConfig;
+    XmlRpc::XmlRpcValue initialPoseConfig;
+    XmlRpc::XmlRpcValue initialCovarianceConfig;
+
 
     if(ros::param::has("/R_acc"))
     {
@@ -115,7 +122,7 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
 
 
 
-    /*
+    
     if(ros::param::has("/S_a"))
     {
         ros::param::get("/S_a", S_aConfig);
@@ -129,9 +136,24 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
               istr >> parameters.S_a(i);
         }
     }
-    */
-    //std::cout<<parameters.S_a<<std::endl;
+
+     if(ros::param::has("/S_g"))
+    {
+        ros::param::get("/S_g", S_gConfig);
+        int matrix_size = parameters.S_g.rows();
+
+        for(int i = 0; i < matrix_size; i++)
+        {
+            std::ostringstream ostr;
+              ostr << S_gConfig[i];
+              std::istringstream istr(ostr.str());
+              istr >> parameters.S_g(i);
+        }
+    }
     
+    std::cout<<parameters.S_g<<std::endl;
+    
+    /*
     if(ros::param::has("/S_a"))
     {
         ros::param::get("/S_a", S_aConfig);
@@ -148,8 +170,8 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
             }
         }
     }
-
-
+    */
+    /*
     if(ros::param::has("/S_g"))
     {
         ros::param::get("/S_g", S_gConfig);
@@ -166,6 +188,10 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
             }
         }
     }
+    */
+
+
+
 
     if(ros::param::has("/S_dvl"))
     {
@@ -232,9 +258,9 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
 
     // Set default values
 
-    if(ros::param::has("/use_ENU"))
+    if(ros::param::has("/use_enu"))
     {
-        ros::param::get("/use_ENU", parameters.use_ENU);
+        ros::param::get("/use_enu", parameters.use_ENU);
     }
 
     //std::cout<<parameters.use_ENU<<std::endl;
@@ -259,39 +285,125 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
         }
     }
 
+     if(ros::param::has("/initial_pose"))
+    {
+        ros::param::get("/initial_pose", initialPoseConfig);
+        int matrix_size = parameters.initial_pose.rows();
+
+        for(int i = 0; i < matrix_size; i++)
+        {
+            std::ostringstream ostr;
+              ostr << initialPoseConfig[i];
+              std::istringstream istr(ostr.str());
+              istr >> parameters.initial_pose(i);
+        }
+    }
+
+     if(ros::param::has("/initial_covariance"))
+    {
+        ros::param::get("/initial_covariance", initialCovarianceConfig);
+        int matrix_size = parameters.initial_covariance.rows();
+
+        for(int i = 0; i < matrix_size; i++)
+        {
+            for(int j = 0; j <matrix_size; j++)
+            {
+              std::ostringstream ostr;
+              ostr << initialCovarianceConfig[matrix_size * i + j];
+              std::istringstream istr(ostr.str());
+              istr >> parameters.initial_covariance(i, j);
+            }
+        }
+    }
+
+
+    //std::cout<<parameters.initial_covariance<<std::endl;
+
+    
+
     return parameters;
 
 }
 
+void setIMUTopicNameFromYaml(std::string& imu_topic_name)
+{
+    if(ros::param::has("/imu_topic"))
+    {
+       ros::param::get("/imu_topic", imu_topic_name);
+    }
+    else
+    {
+        ROS_WARN("No IMU topic set in yaml file");
+    }
+}
 
-ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh) : nh_{pnh}, init_{false}, eskf_{R_ACC,R_ACCBIAS,R_GYRO,R_GYROBIAS,P_GYRO_BIAS,P_ACC_BIAS,returnStaticRotationFromIMUtoBodyFrame(roll_pitch_yaw_NED_and_alignment_corrected),returnStaticRotationFromIMUtoBodyFrame(roll_pitch_yaw_NED_and_alignment_corrected),S_DVL,S_INC}   
+void setDVLTopicNameFromYawl(std::string& dvl_topic_name)
+{
+    if(ros::param::has("/dvl_topic"))
+    {
+       ros::param::get("/dvl_topic", dvl_topic_name);
+    }
+    else
+    {
+        ROS_WARN("No DVL topic set in yaml file");
+    }
+}
+
+void setPressureZTopicNameFromYaml(std::string& pressure_Z_topic_name)
+{
+    if(ros::param::has("/pressureZ_topic"))
+    {
+       ros::param::get("/pressureZ_topic", pressure_Z_topic_name);
+    }
+    else
+    {
+        ROS_WARN("No PressureZ topic set in yaml file");
+    }
+}
+
+void setPublishrateFromYaml(int& publish_rate)
+{
+    if(ros::param::has("/publish_rate"))
+    {
+        ros::param::get("/publish_rate", publish_rate);
+    }
+    else
+    {
+        ROS_WARN("No publish rate set, using default: %i ", publish_rate);
+    }
+
+}
+
+ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh) : nh_{pnh}, init_{false} //,eskf_{R_ACC,R_ACCBIAS,R_GYRO,R_GYROBIAS,P_GYRO_BIAS,P_ACC_BIAS,returnStaticRotationFromIMUtoBodyFrame(roll_pitch_yaw_NED_and_alignment_corrected),returnStaticRotationFromIMUtoBodyFrame(roll_pitch_yaw_NED_and_alignment_corrected),S_DVL,S_INC}   
 {
     R_dvl_.setZero();
     R_pressureZ_.setZero();
+    std::string imu_topic{""};
+    std::string dvl_topic{""};
+    std::string pressureZ_topic{""};
+    int publish_rate{125};
 
-    //std::cout<<eskf_.getS_a()<<std::endl;
+    const parametersInESKF parameters = loadParametersFromYamlFile(); 
+    eskf_.setParametersInESKF(parameters);
+
+    R_dvl_ = parameters.R_dvl;
+    R_pressureZ_=parameters.R_pressureZ;
     
 
-    
-    //const parametersInESKF parameters = loadParametersFromYamlFile(); 
-    //eskf_.setParametersInESKF(parameters);
-
-    //R_dvl_ = parameters.R_dvl;
-    //R_pressureZ_=parameters.R_pressureZ;
-    
-
-    
-    ROS_INFO("Parameters set!");
-    int publish_rate{125}; // Change this to include params
-    ROS_INFO("Subscribing to IMU /imu/data_raw");
+    setIMUTopicNameFromYaml(imu_topic);
+    setDVLTopicNameFromYawl(dvl_topic);
+    setPressureZTopicNameFromYaml(pressureZ_topic);
+    setPublishrateFromYaml(publish_rate);
+  
+    ROS_INFO("Subscribing to IMU topic: %s", imu_topic.c_str());
     // Subscribe to IMU
-    subscribeIMU_ = nh_.subscribe<sensor_msgs::Imu>("/imu/data_raw",1000,&ESKF_Node::imuCallback,this, ros::TransportHints().tcpNoDelay(true));
+    subscribeIMU_ = nh_.subscribe<sensor_msgs::Imu>(imu_topic,1000,&ESKF_Node::imuCallback,this, ros::TransportHints().tcpNoDelay(true));
     // Subscribe to DVL
-    ROS_INFO("Subscribing to DVL /manta/dvl");
-    subcribeDVL_ = nh_.subscribe<nav_msgs::Odometry>("/manta/dvl",1000,&ESKF_Node::dvlCallback,this,ros::TransportHints().tcpNoDelay(true));
+    ROS_INFO("Subscribing to DVL: %s", dvl_topic.c_str());
+    subcribeDVL_ = nh_.subscribe<nav_msgs::Odometry>(dvl_topic,1000,&ESKF_Node::dvlCallback,this,ros::TransportHints().tcpNoDelay(true));
     // Subscribe to Pressure sensor
-    ROS_INFO("Subscribing to Pressure Sensor /manta/pressureZ");
-    subscribePressureZ_=nh_.subscribe<nav_msgs::Odometry>("/manta/pressureZ",1000,&ESKF_Node::pressureZCallback,this,ros::TransportHints().tcpNoDelay(true));
+    ROS_INFO("Subscribing to pressure sensor: %s", pressureZ_topic.c_str());
+    subscribePressureZ_=nh_.subscribe<nav_msgs::Odometry>(pressureZ_topic,1000,&ESKF_Node::pressureZCallback,this,ros::TransportHints().tcpNoDelay(true));
 
 
     ROS_INFO("Publishing State");
@@ -310,15 +422,27 @@ void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
     int imu_publish_rate{DEFAULT_IMU_RATE};
     Vector3d raw_acceleration_measurements = Vector3d::Zero();
     Vector3d raw_gyro_measurements = Vector3d::Zero();
+    Matrix3d R_acc = Matrix3d::Zero();
 
     Ts = (1.0/imu_publish_rate);
     raw_acceleration_measurements << imu_Message_data->linear_acceleration.x,
                                    imu_Message_data->linear_acceleration.y,
                                    imu_Message_data->linear_acceleration.z;
 
+    
+    for(size_t i = 0; i < 3;i++)
+    {
+        for(size_t j = 0; j<3;j++)
+        {
+            R_acc(i,j) = imu_Message_data->linear_acceleration_covariance[3*i+j];
+        }
+    }
+
     raw_gyro_measurements << imu_Message_data->angular_velocity.x,
                              imu_Message_data->angular_velocity.y,
                              imu_Message_data->angular_velocity.z;
+
+
 
     //ROS_INFO("Acceleration_x: %f",imu_Message_data->linear_acceleration.x);
     eskf_.predict(raw_acceleration_measurements,raw_gyro_measurements,Ts);       
@@ -329,24 +453,38 @@ void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
 void ESKF_Node::dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data)
 {
     Vector3d raw_dvl_measurements = Vector3d::Zero();
+    Matrix3d R_dvl = Matrix3d::Zero();
 
 
     raw_dvl_measurements << dvl_Message_data->twist.twist.linear.x,
                             dvl_Message_data->twist.twist.linear.y,
                             dvl_Message_data->twist.twist.linear.z;
+
+     for(size_t i = 0; i < 3;i++)
+    {
+        for(size_t j = 0; j<3;j++)
+        {
+            R_dvl(i,j) = dvl_Message_data->twist.covariance[3*i+j];
+        }
+    }
     
+
     //ROS_INFO("Velocity_z: %f",dvl_Message_data->twist.twist.linear.z);
-    eskf_.updateDVL(raw_dvl_measurements,R_DVL);
+    eskf_.updateDVL(raw_dvl_measurements,R_dvl_);
 }
 
 
 void ESKF_Node::pressureZCallback(const nav_msgs::Odometry::ConstPtr& pressureZ_Message_data)
 {
+    Matrix<double,1,1> RpressureZ;
     const double raw_pressure_z = pressureZ_Message_data->pose.pose.position.z;
+    
+    RpressureZ(0) = pressureZ_Message_data->pose.covariance[0];
 
+    //std::cout<<RpressureZ<<std::endl;
     //const double R_pressureZ = 2.2500;
 
-    eskf_.updatePressureZ(raw_pressure_z,R_PRESSUREZ);
+    eskf_.updatePressureZ(raw_pressure_z,R_pressureZ_);
 }
 
 
@@ -355,28 +493,25 @@ void ESKF_Node::publishPoseState(const ros::TimerEvent&)
     nav_msgs::Odometry odom_msg;
     static size_t trace_id{0};
 
-    // ENU
-    const Vector3d& ENUposition = eskf_.getPositionInENU();
-    const Vector3d& ENUVelocity = eskf_.getVelocityInENU();
+    const Vector3d& position = eskf_.getPosition();
+    const Vector3d& velocity = eskf_.getVelocity();
 
-    
-    // NED
-    const VectorXd& NEDpose = eskf_.getPose();
+    const VectorXd& pose = eskf_.getPose();
     const MatrixXd& errorCovariance = eskf_.getErrorCovariance();
 
     odom_msg.header.frame_id = "/eskf_link";
     odom_msg.header.seq = trace_id++;
     odom_msg.header.stamp = ros::Time::now();
-    odom_msg.pose.pose.position.x = ENUposition(StateMemberX); //NEDpose(StateMemberX);
-    odom_msg.pose.pose.position.y = ENUposition(StateMemberY); //NEDpose(StateMemberY)
-    odom_msg.pose.pose.position.z = ENUposition(StateMemberZ); //NEDpose(StateMemberZ);
-    odom_msg.twist.twist.linear.x = ENUVelocity(0); //NEDpose(StateMemberVx);
-    odom_msg.twist.twist.linear.y = ENUVelocity(1); //NEDpose(StateMemberVy);
-    odom_msg.twist.twist.linear.z = ENUVelocity(2); //NEDpose(StateMemberVz);
-    odom_msg.pose.pose.orientation.w = NEDpose(StateMemberQw);
-    odom_msg.pose.pose.orientation.x = NEDpose(StateMemberQx);
-    odom_msg.pose.pose.orientation.y = NEDpose(StateMemberQy);
-    odom_msg.pose.pose.orientation.z = NEDpose(StateMemberQz);
+    odom_msg.pose.pose.position.x = position(StateMemberX); //NEDpose(StateMemberX);
+    odom_msg.pose.pose.position.y = position(StateMemberY); //NEDpose(StateMemberY)
+    odom_msg.pose.pose.position.z = position(StateMemberZ); //NEDpose(StateMemberZ);
+    odom_msg.twist.twist.linear.x = velocity(0); //NEDpose(StateMemberVx);
+    odom_msg.twist.twist.linear.y = velocity(1); //NEDpose(StateMemberVy);
+    odom_msg.twist.twist.linear.z = velocity(2); //NEDpose(StateMemberVz);
+    odom_msg.pose.pose.orientation.w = pose(StateMemberQw);
+    odom_msg.pose.pose.orientation.x = pose(StateMemberQx);
+    odom_msg.pose.pose.orientation.y = pose(StateMemberQy);
+    odom_msg.pose.pose.orientation.z = pose(StateMemberQz);
     //odom_msg.pose.covariance
 
     //loadParametersFromYamlFile();

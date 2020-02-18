@@ -84,12 +84,14 @@ struct parametersInESKF
 	Matrix<double,1,1> R_pressureZ;
 	double pgyroBias;
 	double paccBias;
-	//Vector3d S_a;
-	Matrix<double,3,3> S_a;
-	Matrix<double,3,3> S_g;
+	Vector3d S_a;
+	Vector3d S_g;
+	//Matrix<double,3,3> S_a;
+	//Matrix<double,3,3> S_g;
 	Matrix<double,3,3> S_dvl;
 	Matrix<double,3,3> S_inc;
-	
+	Matrix<double,NOMINAL_STATE_SIZE,1> initial_pose;
+	Matrix<double,ERROR_STATE_SIZE,ERROR_STATE_SIZE> initial_covariance;
 	bool use_ENU;
 };
 
@@ -123,12 +125,13 @@ public:
 
 	void setParametersInESKF(const parametersInESKF& parameters);
 
-	const inline Matrix3d getS_a() const
+
+	const inline MatrixXd getS_g() const
 	{
-		return Sa;
+		return Sg;
 	}
 
-	const inline Vector3d getPositionInENU() const
+	const inline Vector3d getPosition() const
 	{
 		Matrix3d R_ned_to_enu = Matrix3d::Zero();
 		Vector3d position = Vector3d::Zero();
@@ -139,8 +142,8 @@ public:
 		 
 		position = poseStates.block<NOMINAL_POSITION_STATE_SIZE,1>(NOMINAL_POSITION_STATE_OFFSET,0);
 
-		return R_ned_to_enu*position;
-		/*
+		//return R_ned_to_enu*position;
+		
 		if(use_ENU_)
 		{
 			return R_ned_to_enu*position;
@@ -149,9 +152,9 @@ public:
 		{
 			return position;
 		}
-		*/
+		
 	}
-	const inline Vector3d getVelocityInENU() const
+	const inline Vector3d getVelocity() const
 	{
 		Matrix3d R_ned_to_enu = Matrix3d::Zero();
 		Vector3d velocity = Vector3d::Zero();
@@ -162,8 +165,8 @@ public:
 		 
 		velocity = poseStates.block<NOMINAL_VELOCITY_STATE_SIZE, 1>(NOMINAL_VELOCITY_STATE_OFFSET, 0);
 
-		return R_ned_to_enu*velocity;
-		/*
+		//return R_ned_to_enu*velocity;
+		
 		if(use_ENU_)
 		{
 			return R_ned_to_enu*velocity;
@@ -172,7 +175,7 @@ public:
 		{
 			return velocity;
 		}
-		*/
+		
 		 
 	}
 

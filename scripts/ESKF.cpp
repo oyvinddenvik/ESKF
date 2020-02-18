@@ -20,45 +20,46 @@ ESKF::ESKF() : pgyroBias{0},paccBias{0},SpressureZ{0},poseStates(NOMINAL_STATE_S
     Sg.setZero();
     Sdvl.setZero();
     Sinc.setZero();
+	D.setZero();
    
-	D = blk3x3Diag(Racc, Rgyro, RaccBias, RgyroBias);
-
 	poseStates.setZero();
 	errorStateCovariance.setZero();
-	Matrix3d I_3x3 = Matrix3d::Identity();
-	Vector3d initialPosition = Vector3d::Zero();
-	Vector3d initialVelocity = Vector3d::Zero();
-	Vector4d initialQuat = Vector4d::Zero();
-	Vector3d initialAccBias = Vector3d::Zero();
-	Vector3d initialGyroBias = Vector3d::Zero();
-	Matrix3d initialPPos = Matrix3d::Zero();
-	Matrix3d initialPVel = Matrix3d::Zero();
-	Matrix3d initialPDq = Matrix3d::Zero();
-	Matrix3d initialPAccBias = Matrix3d::Zero();
-	Matrix3d initialPGyroBias = Matrix3d::Zero();
-
-	initialPosition << -1.96,0.061,0;
-	initialVelocity << 0,0,0;
-	initialQuat << 0.9935,0,0,-0.1134;
-	initialAccBias << 0,0,0;
-	initialGyroBias << 0,0,0;
-	initialPPos.diagonal() << 1e-9*1e-9,1e-9*1e-9,1e-9*1e-9;
-	initialPVel.diagonal() << 1e-4*1e-4,1e-4*1e-4,1e-4*1e-4;
-	initialPDq.diagonal() << 12e-3*12e-3,12e-3*12e-3,12e-3*12e-3;
-	initialPAccBias.diagonal() << 12e-9*12e-9,12e-9*12e-9,12e-9*12e-9;
-	initialPGyroBias.diagonal() << 3e-18*3e-18,3e-18*3e-18,3e-18*3e-18;
+	//Matrix3d I_3x3 = Matrix3d::Identity();
 	
-	errorStateCovariance.block<3,3>(0,0) = initialPPos;
-	errorStateCovariance.block<3,3>(3,3) = initialPVel;
-	errorStateCovariance.block<3,3>(6,6) = initialPDq;
-	errorStateCovariance.block<3,3>(9,9) = initialPAccBias;
-	errorStateCovariance.block<3,3>(12,12) = initialPGyroBias;
+	//Vector3d initialPosition = Vector3d::Zero();
+	//Vector3d initialVelocity = Vector3d::Zero();
+	//Vector4d initialQuat = Vector4d::Zero();
+	//Vector3d initialAccBias = Vector3d::Zero();
+	//Vector3d initialGyroBias = Vector3d::Zero();
+	//Matrix3d initialPPos = Matrix3d::Zero();
+	//Matrix3d initialPVel = Matrix3d::Zero();
+	//Matrix3d initialPDq = Matrix3d::Zero();
+	//Matrix3d initialPAccBias = Matrix3d::Zero();
+	//Matrix3d initialPGyroBias = Matrix3d::Zero();
+	
 
-	poseStates << initialPosition,
-				  initialVelocity,
-				  initialQuat,
-				  initialAccBias,
-				  initialGyroBias;
+	//initialPosition << -1.96,0.061,0;
+	//initialVelocity << 0,0,0;
+	//initialQuat << 0.9935,0,0,-0.1134;
+	//initialAccBias << 0,0,0;
+	//initialGyroBias << 0,0,0;
+	//initialPPos.diagonal() << 1e-9*1e-9,1e-9*1e-9,1e-9*1e-9;
+	//initialPVel.diagonal() << 1e-4*1e-4,1e-4*1e-4,1e-4*1e-4;
+	//initialPDq.diagonal() << 12e-3*12e-3,12e-3*12e-3,12e-3*12e-3;
+	//initialPAccBias.diagonal() << 12e-9*12e-9,12e-9*12e-9,12e-9*12e-9;
+	//initialPGyroBias.diagonal() << 3e-18*3e-18,3e-18*3e-18,3e-18*3e-18;
+	
+	//errorStateCovariance.block<3,3>(0,0) = initialPPos;
+	//errorStateCovariance.block<3,3>(3,3) = initialPVel;
+	//errorStateCovariance.block<3,3>(6,6) = initialPDq;
+	//errorStateCovariance.block<3,3>(9,9) = initialPAccBias;
+	//errorStateCovariance.block<3,3>(12,12) = initialPGyroBias;
+
+	//poseStates << initialPosition,
+	//			  initialVelocity,
+	//			  initialQuat,
+	//			  initialAccBias,
+	//			  initialGyroBias;
 
 }
 
@@ -70,6 +71,7 @@ ESKF::ESKF(const Matrix3d& Racc, const Matrix3d& RaccBias, const Matrix3d& Rgyro
 	D = blk3x3Diag(Racc, Rgyro, RaccBias, RgyroBias);
 	poseStates.setZero();
 	errorStateCovariance.setZero();
+	
 	Matrix3d I_3x3 = Matrix3d::Identity();
 	Vector3d initialPosition = Vector3d::Zero();
 	Vector3d initialVelocity = Vector3d::Zero();
@@ -104,7 +106,7 @@ ESKF::ESKF(const Matrix3d& Racc, const Matrix3d& RaccBias, const Matrix3d& Rgyro
 				  initialQuat,
 				  initialAccBias,
 				  initialGyroBias;	
-
+	
 	//std::cout<<poseStates<<std::endl;
 	//std::cout<<errorStateCovariance<<std::endl;
 }
@@ -118,12 +120,16 @@ void ESKF::setParametersInESKF(const parametersInESKF& parameters)
 	RgyroBias = parameters.R_gyroBias;
 	Sdvl = parameters.S_dvl;
 	Sinc = parameters.S_inc;
-	//Sa = eulerToRotationMatrix(parameters.S_a);
-	Sa = parameters.S_a;
-	Sg = parameters.S_g;
+	Sa = eulerToRotationMatrix(parameters.S_a);
+	Sg = eulerToRotationMatrix(parameters.S_g);
+	//Sa = parameters.S_a;
+	//Sg = parameters.S_g;
 	pgyroBias = parameters.pgyroBias;
 	paccBias = parameters.paccBias;
 	use_ENU_= parameters.use_ENU;
+	D = blk3x3Diag(Racc, Rgyro, RaccBias, RgyroBias);
+	poseStates = parameters.initial_pose;
+	errorStateCovariance = parameters.initial_covariance;
 }
 
 
