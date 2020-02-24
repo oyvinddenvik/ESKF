@@ -1,6 +1,6 @@
 #include "ESKF.h"
 #include "common.h"
-
+#include "chrono"
 
 
 
@@ -137,7 +137,9 @@ void ESKF::setParametersInESKF(const parametersInESKF& parameters)
 
 VectorXd ESKF::predictNominal(const VectorXd& xnominal, const Vector3d& accRectifiedMeasurements, const Vector3d& gyroRectifiedmeasurements, const double& Ts)
 {
-	
+
+	//auto start = std::chrono::steady_clock::now();
+
 	// Initilize
 	VectorXd xNextnominal(NOMINAL_STATE_SIZE); 
 	xNextnominal.setZero();
@@ -192,12 +194,30 @@ VectorXd ESKF::predictNominal(const VectorXd& xnominal, const Vector3d& accRecti
 					predictAccBias,
 					predictGyroBias;
 
+	//auto end = std::chrono::steady_clock::now();
+
+	//auto diff = end - start;
+
+	//std::cout << "predictnominal: " <<std::chrono::duration <double, std::milli> (diff).count() << " ms" << std::endl;
+
 	return xNextnominal;
 
 }
 
+
+
+
+
+
+
+
+
+
+
 MatrixXd ESKF::Aerr(const VectorXd& xnominal, const Vector3d& accRectifiedMeasurements, const Vector3d& gyroRectifiedmeasurements)
 {
+	//auto start = std::chrono::steady_clock::now();
+
 	// Initilize
 	MatrixXd A(ERROR_STATE_SIZE,ERROR_STATE_SIZE);
 	A.setZero();
@@ -223,11 +243,64 @@ MatrixXd ESKF::Aerr(const VectorXd& xnominal, const Vector3d& accRectifiedMeasur
 	A.block<3, 3>(3, 9) = A.block<3, 3>(3, 9) * Sa;
 	A.block<3, 3>(6, 12) = A.block<3, 3>(6, 12) * Sg;
 
+	
+	// Execution time
+	//auto end = std::chrono::steady_clock::now();
+
+	//auto diff = end - start;
+
+	//std::cout <<"Aerr: " <<std::chrono::duration <double, std::milli> (diff).count() << " ms" << std::endl;
+
 	return A;
 } 
 
+
+
+MatrixXd ESKF::AerrDiscretized(const VectorXd& xnominal,const Vector3d& accRectifiedMeasurements,const Vector3d& gyroRectifiedmeasurements,const double& Ts)
+{
+	//auto start = std::chrono::steady_clock::now();
+	// Compute first order approximation of matrix exponentional taylor expansion
+	// I_15x15 +A_err*Ts
+
+	MatrixXd A_err_discretized(ERROR_STATE_SIZE,ERROR_STATE_SIZE);
+	MatrixXd A_err(ERROR_STATE_SIZE,ERROR_STATE_SIZE);
+	MatrixXd identityMatrix(ERROR_STATE_SIZE,ERROR_STATE_SIZE);
+	A_err.setZero();
+	identityMatrix.setIdentity();
+
+	A_err = Aerr(xnominal, accRectifiedMeasurements, gyroRectifiedmeasurements);
+
+	A_err_discretized = identityMatrix +A_err*Ts;
+
+		// Execution time
+	//auto end = std::chrono::steady_clock::now();
+
+	//auto diff = end - start;
+
+	//std::cout <<"Aerr_discretized: " <<std::chrono::duration <double, std::milli> (diff).count() << " ms" << std::endl;
+
+	return A_err_discretized;
+}
+
+MatrixXd ESKF::Fi()
+{
+	MatrixXd F_i(ERROR_STATE_SIZE,12);
+	Matrix3d identity_matrix_3x3 = Matrix3d::Zero();
+	identity_matrix_3x3.setIdentity();
+	F_i.setZero();
+
+	F_i.block<3,3>(3,0) = identity_matrix_3x3;
+	F_i.block<3,3>(6,3) = identity_matrix_3x3;
+	F_i.block<3,3>(9,6) = identity_matrix_3x3;
+	F_i.block<3,3>(12,9) = identity_matrix_3x3;
+
+	return F_i;
+}
+
+
 MatrixXd ESKF::Gerr(const VectorXd& xnominal)
 {
+	//auto start = std::chrono::steady_clock::now();
 	// Initilize
 	MatrixXd Gerror(ERROR_STATE_SIZE, 12);
 	Gerror.setZero();
@@ -244,12 +317,23 @@ MatrixXd ESKF::Gerr(const VectorXd& xnominal)
 	Gerror.block<3, 3>(9, 6) = identityMatrix;
 	Gerror.block<3, 3>(12, 9) = identityMatrix;
 
+	// Execution time
+	//auto end = std::chrono::steady_clock::now();
+
+	//auto diff = end - start;
+
+	//std::cout <<"Gerr: " <<std::chrono::duration <double, std::milli> (diff).count() << " ms" << std::endl;
+
 	return Gerror;
 
 }
 
+
 AdandGQGD ESKF::discreteErrorMatrix(const VectorXd& xnominal,const Vector3d& accRectifiedMeasurements,const Vector3d& gyroRectifiedmeasurements,const double& Ts)
 {
+
+	//auto start = std::chrono::steady_clock::now();
+
 	// Initilize
 	AdandGQGD errorMatrix;
 	MatrixXd vanLoan(30, 30);
@@ -257,6 +341,8 @@ AdandGQGD ESKF::discreteErrorMatrix(const VectorXd& xnominal,const Vector3d& acc
 	MatrixXd zeros(ERROR_STATE_SIZE, ERROR_STATE_SIZE);
 	MatrixXd A(ERROR_STATE_SIZE, ERROR_STATE_SIZE);
 	MatrixXd G(ERROR_STATE_SIZE, 12);
+	MatrixXd FDF(ERROR_STATE_SIZE,ERROR_STATE_SIZE); 		//
+	MatrixXd F_i(ERROR_STATE_SIZE,12);						//
 
 	A.setZero();
 	G.setZero();
@@ -265,24 +351,49 @@ AdandGQGD ESKF::discreteErrorMatrix(const VectorXd& xnominal,const Vector3d& acc
 	vanLoan.setZero();
 	errorMatrix.Ad.setZero();
 	errorMatrix.GQGD.setZero();
+	FDF.setZero();											//
+	F_i.setZero();											//
 
-	// Caculate Van Loan
+	/*
 	A = Aerr(xnominal, accRectifiedMeasurements, gyroRectifiedmeasurements);
 	G = Gerr(xnominal);
 
+	// Calculate Van Loan
 	vanLoan << -1.0 * A, G* D* G.transpose(),
 				zeros, A.transpose();
 
 	vanLoan = vanLoan * Ts;
+
+	// Computation time very slow
 	vanLoanExponentional= vanLoan.exp();
-	errorMatrix.Ad = vanLoanExponentional.block<ERROR_STATE_SIZE, ERROR_STATE_SIZE>(ERROR_STATE_SIZE, ERROR_STATE_SIZE).transpose();
-	errorMatrix.GQGD = vanLoanExponentional.block<ERROR_STATE_SIZE, ERROR_STATE_SIZE>(ERROR_STATE_SIZE, ERROR_STATE_SIZE).transpose() * vanLoanExponentional.block<ERROR_STATE_SIZE, ERROR_STATE_SIZE>(0, ERROR_STATE_SIZE);
+	*/
+
+	F_i = Fi();												//
+
+
+	//std::cout<< F_i<<std::endl;
+
+	errorMatrix.Ad = AerrDiscretized(xnominal,accRectifiedMeasurements,gyroRectifiedmeasurements,Ts); //vanLoanExponentional.block<ERROR_STATE_SIZE, ERROR_STATE_SIZE>(ERROR_STATE_SIZE, ERROR_STATE_SIZE).transpose();
+	errorMatrix.GQGD = F_i*D*F_i.transpose(); // vanLoanExponentional.block<ERROR_STATE_SIZE, ERROR_STATE_SIZE>(ERROR_STATE_SIZE, ERROR_STATE_SIZE).transpose() * vanLoanExponentional.block<ERROR_STATE_SIZE, ERROR_STATE_SIZE>(0, ERROR_STATE_SIZE); // 
+
+
+	//std::cout<<errorMatrix.GQGD<<std::endl;
+
+
+	// Execution time
+	//auto end = std::chrono::steady_clock::now();
+
+	//auto diff = end - start;
+
+	//std::cout <<"DiscreteErrorMatrix: " <<std::chrono::duration <double, std::milli> (diff).count() << " ms" << std::endl;
+
 
 	return errorMatrix;
 }
 
 MatrixXd ESKF::predictCovariance(const VectorXd& xnominal,const MatrixXd& P,const Vector3d& accRectifiedMeasurements,const Vector3d& gyroRectifiedmeasurements,const double& Ts)
 {
+	//auto start = std::chrono::steady_clock::now();
 	MatrixXd Pprediction(ERROR_STATE_SIZE, ERROR_STATE_SIZE);
 	AdandGQGD errorMatrix;
 
@@ -293,13 +404,20 @@ MatrixXd ESKF::predictCovariance(const VectorXd& xnominal,const MatrixXd& P,cons
 	errorMatrix = discreteErrorMatrix(xnominal, accRectifiedMeasurements, gyroRectifiedmeasurements, Ts);
 	Pprediction = (errorMatrix.Ad * P * errorMatrix.Ad.transpose()) + errorMatrix.GQGD;
 
+	// Execution time
+	//auto end = std::chrono::steady_clock::now();
+
+	//auto diff = end - start;
+
+	//std::cout <<"PredictCovariance: " <<std::chrono::duration <double, std::milli> (diff).count() << " ms" << std::endl;
+
 	return Pprediction;
 
 }
 
 void ESKF::predict(Vector3d zAccMeasurements, Vector3d zGyroMeasurements,const double& Ts)
 {
-	
+	auto start = std::chrono::steady_clock::now();
 	StatesAndErrorCovariance predictions;
 	predictions.P.setZero();
 	predictions.X.setZero();
@@ -325,10 +443,18 @@ void ESKF::predict(Vector3d zAccMeasurements, Vector3d zGyroMeasurements,const d
 
 	poseStates = predictions.X;
 	errorStateCovariance = predictions.P;
+
+	// Execution time
+	auto end = std::chrono::steady_clock::now();
+
+	auto diff = end - start;
+
+	std::cout <<"predict: " <<std::chrono::duration <double, std::milli> (diff).count() << " ms" << std::endl;
 }
 
 StatesAndErrorCovariance ESKF::inject(const VectorXd& xnominal,const VectorXd& deltaX,const MatrixXd& P)
 {
+	//auto start = std::chrono::steady_clock::now();
 	MatrixXd Ginject(ERROR_STATE_SIZE, ERROR_STATE_SIZE);
 	Ginject.setIdentity();
 	Matrix3d identityMatrix3x3 = Matrix3d::Identity();
@@ -367,6 +493,12 @@ StatesAndErrorCovariance ESKF::inject(const VectorXd& xnominal,const VectorXd& d
 	Ginject.block<3, 3>(6, 6) = identityMatrix3x3 - crossProductMatrix(0.5 * deltaX.block<3,1>(6, 0));
 	injections.P = Ginject * P * Ginject.transpose();
 
+	// Execution time
+	//auto end = std::chrono::steady_clock::now();
+
+	//auto diff = end - start;
+
+	//std::cout <<"injections: " <<std::chrono::duration <double, std::milli> (diff).count() << " ms" << std::endl;
 
 	return injections;
 }

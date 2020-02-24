@@ -114,6 +114,10 @@ public:
 	//StatePredictions predict(const VectorXd& xnominal,const MatrixXd& P, Vector3d zAccMeasurements, Vector3d zGyroMeasurements,const double& Ts);
 	StatesAndErrorCovariance inject(const VectorXd& xnominal,const VectorXd& deltaX,const MatrixXd& P);
 
+	// Lower computation time implementation
+	MatrixXd AerrDiscretized(const VectorXd& xnominal,const Vector3d& accRectifiedMeasurements,const Vector3d& gyroRectifiedmeasurements,const double& Ts);
+	MatrixXd Fi();
+
 	// DVL
 	InnovationDVLStates innovationDVL(const VectorXd& xnominal,const MatrixXd& P,const Vector3d& zDVLvel,const Matrix3d& RDVL);
 	void updateDVL(const Vector3d& zDVLvel,const Matrix3d& RDVL);
@@ -124,6 +128,8 @@ public:
 
 
 	void setParametersInESKF(const parametersInESKF& parameters);
+
+	
 
 
 	const inline MatrixXd getS_g() const

@@ -3,6 +3,7 @@
 #include<Eigen/Core>
 #include"ros_node.h"
 
+
 const Matrix3d returnStaticRotationFromIMUtoBodyFrame(const Vector3d& roll_pitch_yaw_NED_and_alignment_corrected)
 {
     Matrix3d static_S_a = Matrix3d::Zero();
@@ -151,7 +152,7 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
         }
     }
     
-    std::cout<<parameters.S_g<<std::endl;
+    //std::cout<<parameters.S_g<<std::endl;
     
     /*
     if(ros::param::has("/S_a"))
@@ -376,6 +377,9 @@ void setPublishrateFromYaml(int& publish_rate)
 
 ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh) : nh_{pnh}, init_{false} //,eskf_{R_ACC,R_ACCBIAS,R_GYRO,R_GYROBIAS,P_GYRO_BIAS,P_ACC_BIAS,returnStaticRotationFromIMUtoBodyFrame(roll_pitch_yaw_NED_and_alignment_corrected),returnStaticRotationFromIMUtoBodyFrame(roll_pitch_yaw_NED_and_alignment_corrected),S_DVL,S_INC}   
 {
+    
+
+	
     R_dvl_.setZero();
     R_pressureZ_.setZero();
     std::string imu_topic{""};
@@ -411,6 +415,9 @@ ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh) : nh
     
     
     pubTImer_= nh_.createTimer(ros::Duration(1.0f/publish_rate), &ESKF_Node::publishPoseState, this);
+
+
+
 }
 
 
@@ -467,6 +474,8 @@ void ESKF_Node::dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data
             R_dvl(i,j) = dvl_Message_data->twist.covariance[3*i+j];
         }
     }
+
+    
     
 
     //ROS_INFO("Velocity_z: %f",dvl_Message_data->twist.twist.linear.z);
