@@ -438,9 +438,9 @@ void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
                                    imu_Message_data->linear_acceleration.z;
 
     
-    for(size_t i = 0; i < 3;i++)
+    for(size_t i = 0; i < R_acc.rows();i++)
     {
-        for(size_t j = 0; j<3;j++)
+        for(size_t j = 0; j<R_acc.cols();j++)
         {
             R_acc(i,j) = imu_Message_data->linear_acceleration_covariance[3*i+j];
         }
@@ -450,9 +450,9 @@ void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
                              imu_Message_data->angular_velocity.y,
                              imu_Message_data->angular_velocity.z;
 
-     for(size_t i = 0; i < 3;i++)
+     for(size_t i = 0; i < R_gyro.rows();i++)
     {
-        for(size_t j = 0; j<3;j++)
+        for(size_t j = 0; j<R_gyro.cols();j++)
         {
             R_gyro(i,j) = imu_Message_data->angular_velocity_covariance[3*i+j];
         }
@@ -474,22 +474,20 @@ void ESKF_Node::dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data
                             dvl_Message_data->twist.twist.linear.y,
                             dvl_Message_data->twist.twist.linear.z;
 
-     for(size_t i = 0; i < 3;i++)
+     for(size_t i = 0; i < R_dvl.rows();i++)
     {
-        for(size_t j = 0; j<3;j++)
+        for(size_t j = 0; j<R_dvl.cols();j++)
         {
             R_dvl(i,j) = dvl_Message_data->twist.covariance[3*i+j];
         }
     }
 
     
-    
-
     //ROS_INFO("Velocity_z: %f",dvl_Message_data->twist.twist.linear.z);
     eskf_.updateDVL(raw_dvl_measurements,R_dvl_);
 }
 
-
+// PressureZ subscriber
 void ESKF_Node::pressureZCallback(const nav_msgs::Odometry::ConstPtr& pressureZ_Message_data)
 {
     Matrix<double,1,1> RpressureZ;
@@ -511,9 +509,10 @@ void ESKF_Node::publishPoseState(const ros::TimerEvent&)
 
     const Vector3d& position = eskf_.getPosition();
     const Vector3d& velocity = eskf_.getVelocity();
+    const Vector4d& quaternion = eskf_.getQuaternion();
 
-    const VectorXd& pose = eskf_.getPose();
-    const MatrixXd& errorCovariance = eskf_.getErrorCovariance();
+    //const VectorXd& pose = eskf_.getPose();
+    //const MatrixXd& errorCovariance = eskf_.getErrorCovariance();
 
     odom_msg.header.frame_id = "/eskf_link";
     odom_msg.header.seq = trace_id++;
@@ -524,25 +523,25 @@ void ESKF_Node::publishPoseState(const ros::TimerEvent&)
     odom_msg.twist.twist.linear.x = velocity(0); //NEDpose(StateMemberVx);
     odom_msg.twist.twist.linear.y = velocity(1); //NEDpose(StateMemberVy);
     odom_msg.twist.twist.linear.z = velocity(2); //NEDpose(StateMemberVz);
-    odom_msg.pose.pose.orientation.w = pose(StateMemberQw);
-    odom_msg.pose.pose.orientation.x = pose(StateMemberQx);
-    odom_msg.pose.pose.orientation.y = pose(StateMemberQy);
-    odom_msg.pose.pose.orientation.z = pose(StateMemberQz);
+    odom_msg.pose.pose.orientation.w = quaternion(0);  //pose(StateMemberQw);
+    odom_msg.pose.pose.orientation.x = quaternion(1);  //pose(StateMemberQx);
+    odom_msg.pose.pose.orientation.y = quaternion(2);  //pose(StateMemberQy);
+    odom_msg.pose.pose.orientation.z = quaternion(3);  //pose(StateMemberQz);
     //odom_msg.pose.covariance
 
     //loadParametersFromYamlFile();
 
-    /*
-    Quat q;
-    EulerAngles euler;
+    
+    //Quat q;
+    //EulerAngles euler;
 
-    q.w = odom_msg.pose.pose.orientation.w;
-    q.x = odom_msg.pose.pose.orientation.x;
-    q.y = odom_msg.pose.pose.orientation.y;
-    q.z = odom_msg.pose.pose.orientation.z;
+    //q.w = odom_msg.pose.pose.orientation.w;
+    //q.x = odom_msg.pose.pose.orientation.x;
+    //q.y = odom_msg.pose.pose.orientation.y;
+    //q.z = odom_msg.pose.pose.orientation.z;
 
-    euler = fromQuaternionToEulerAngles(q);
-    */
+    //euler = fromQuaternionToEulerAngles(q);
+    
     //std::cout<<"pitch: "<<euler.pitch*180/PI<<std::endl;
     //std::cout<<"roll: "<<euler.roll*180/PI<<std::endl;
     //std::cout<<"yaw: "<<euler.yaw*180/PI<<std::endl;

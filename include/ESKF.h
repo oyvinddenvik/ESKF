@@ -4,6 +4,7 @@
 #include <Eigen/Dense>
 #include <math.h>
 #include <unsupported/Eigen/MatrixFunctions>
+#include "common.h"
 
 
 
@@ -132,11 +133,34 @@ public:
 	void setParametersInESKF(const parametersInESKF& parameters);
 
 	
-
-
-	const inline MatrixXd getS_g() const
+	const inline Vector4d getQuaternion() const
 	{
-		return Sg_;
+		Vector4d quaternion_NED = Vector4d::Zero();
+		//Vector4d quaternion_NED_To_ENU = Vector4d::Zero();
+		Vector4d quaternion_ENU = Vector4d::Zero();
+
+		
+		//quaternion_NED_To_ENU <<0, -0.70711, -0.70711, -0;
+
+		quaternion_NED = poseStates_.block<NOMINAL_QUATERNION_STATE_SIZE, 1>(NOMINAL_QUATERNION_STATE_OFFSET, 0);
+
+		//quaternion_ENU = quaternionHamiltonProduct(quaternion_NED_To_ENU, quaternion_NED);
+
+		quaternion_ENU << quaternion_NED(0),       // w
+						  quaternion_NED(2),       // y
+						  quaternion_NED(1),       // x
+						  -1.0*quaternion_NED(3);  // -z
+		//std::cout<<quaternion_NED_To_ENU.conjugate()<<std::endl;
+
+		if(use_ENU_)
+		{
+			return quaternion_ENU;
+		}
+		else
+		{
+			return quaternion_NED;
+		}
+		
 	}
 
 	const inline Vector3d getPosition() const
@@ -150,8 +174,6 @@ public:
 		 
 		position = poseStates_.block<NOMINAL_POSITION_STATE_SIZE,1>(NOMINAL_POSITION_STATE_OFFSET,0);
 
-		//return R_ned_to_enu*position;
-		
 		if(use_ENU_)
 		{
 			return R_ned_to_enu*position;
