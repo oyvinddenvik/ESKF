@@ -28,21 +28,26 @@ enum NominalStateMembers //(16x1)
 	StateMemberAccBiasZ = 12,
 	StateMemberGyroBiasX = 13,
 	StateMemberGyroBiasY = 14,
-	StateMemberGyroBiasZ = 15
+	StateMemberGyroBiasZ = 15,
+	StateMemberGravityX = 16,
+	StateMemberGravityY = 17,
+	StateMemberGravityZ = 18
 };
 
-constexpr int NOMINAL_STATE_SIZE{16};
-constexpr int ERROR_STATE_SIZE{ 15 };
+constexpr int NOMINAL_STATE_SIZE{19};  //16
+constexpr int ERROR_STATE_SIZE{ 18 };
 constexpr int NOMINAL_POSITION_STATE_OFFSET = StateMemberX;
 constexpr int NOMINAL_VELOCITY_STATE_OFFSET = StateMemberVx;
 constexpr int NOMINAL_QUATERNION_STATE_OFFSET = StateMemberQw;
 constexpr int NOMINAL_ACC_BIAS_STATE_OFFSET = StateMemberAccBiasX;
 constexpr int NOMINAL_GYRO_BIAS_STATE_OFFSET = StateMemberGyroBiasX;
+constexpr int NOMINAL_GRAVITY_STATE_OFFSET = StateMemberGravityX;
 constexpr int NOMINAL_POSITION_STATE_SIZE{3};
 constexpr int NOMINAL_VELOCITY_STATE_SIZE{3};
 constexpr int NOMINAL_QUATERNION_STATE_SIZE{4};
 constexpr int NOMINAL_ACC_BIAS_SIZE{3};
 constexpr int NOMINAL_GYRO_BIAS_SIZE{3};
+constexpr int NOMINAL_GRAVITY_SIZE{3};
 
 
 constexpr double GRAVITY{ 9.80665 };
@@ -228,7 +233,7 @@ private:
 	double pgyroBias_;
 	double paccBias_;
 
-	const Vector3d gravity_{ 0,0,GRAVITY };
+	//const Vector3d gravity_{ 0,0,GRAVITY };
 
 	
 	Matrix3d Racc_;		// Acceleration measurements covariance (3x3)

@@ -1,5 +1,4 @@
 #include "ESKF.h"
-#include "common.h"
 #include "chrono"
 
 
@@ -156,12 +155,14 @@ VectorXd ESKF::predictNominal(const VectorXd& xnominal, const Vector3d& accRecti
 	Vector4d quaternion = Vector4d::Zero();
 	Vector3d accBias = Vector3d::Zero();
 	Vector3d gyroBias = Vector3d::Zero();
+	Vector3d gravity = Vector3d::Zero();
 
 	Vector3d predictPosition = Vector3d::Zero();
 	Vector3d predictVelocity = Vector3d::Zero();
 	Vector4d predictQauternion = Vector4d::Zero();
 	Vector3d predictAccBias = Vector3d::Zero();
 	Vector3d predictGyroBias = Vector3d::Zero();
+	Vector3d predictGravity = Vector3d::Zero();
 	
 
 	// Extract states
@@ -170,14 +171,15 @@ VectorXd ESKF::predictNominal(const VectorXd& xnominal, const Vector3d& accRecti
 	quaternion = xnominal.block<NOMINAL_QUATERNION_STATE_SIZE, 1>(NOMINAL_QUATERNION_STATE_OFFSET, 0);
 	accBias = xnominal.block<NOMINAL_ACC_BIAS_SIZE, 1>(NOMINAL_ACC_BIAS_STATE_OFFSET, 0);
 	gyroBias = xnominal.block<NOMINAL_GYRO_BIAS_SIZE, 1>(NOMINAL_GYRO_BIAS_STATE_OFFSET, 0);
+	gravity = xnominal.block<NOMINAL_GRAVITY_SIZE,1>(NOMINAL_GRAVITY_STATE_OFFSET,0);
 
 
 	// Get rotation matrix from quaternion
 	rotationMatrix = quaternion2Rotationmatrix(quaternion);
 
 	// Predictions
-	predictPosition = position + (Ts * velocity) + (0.5 * Ts * Ts * ((rotationMatrix * accRectifiedMeasurements) + gravity_));
-	predictVelocity = velocity + Ts * ((rotationMatrix * accRectifiedMeasurements) + gravity_);
+	predictPosition = position + (Ts * velocity) + (0.5 * Ts * Ts * ((rotationMatrix * accRectifiedMeasurements) + gravity));
+	predictVelocity = velocity + Ts * ((rotationMatrix * accRectifiedMeasurements) + gravity);
 	dTheta = Ts * gyroRectifiedmeasurements;
 	dAngle = sqrt(dTheta.array().square().sum());
 	dq << cos(dAngle / 2.0),
@@ -185,6 +187,7 @@ VectorXd ESKF::predictNominal(const VectorXd& xnominal, const Vector3d& accRecti
 	predictQauternion = quaternionHamiltonProduct(quaternion, dq);
 	predictAccBias = exp(-1.0*paccBias_ * Ts) * accBias;
 	predictGyroBias = exp(-1.0*pgyroBias_ * Ts) * gyroBias;
+	predictGravity = gravity;
 
 	// Normalize quaternion
 	predictQauternion = predictQauternion / sqrt(predictQauternion.array().square().sum());
@@ -194,7 +197,8 @@ VectorXd ESKF::predictNominal(const VectorXd& xnominal, const Vector3d& accRecti
 					predictVelocity,
 					predictQauternion,
 					predictAccBias,
-					predictGyroBias;
+					predictGyroBias,
+					predictGravity;
 
 	//auto end = std::chrono::steady_clock::now();
 
@@ -229,6 +233,9 @@ MatrixXd ESKF::Aerr(const VectorXd& xnominal, const Vector3d& accRectifiedMeasur
 	A.block<3, 3>(6, 12) = -identityMatrix;
 	A.block<3, 3>(9, 9) = -1.0 * paccBias_ * identityMatrix;
 	A.block<3, 3>(12, 12) = -1.0 * pgyroBias_ * identityMatrix;
+
+	// Gravity estimation
+	A.block<3,3>(3,15) = identityMatrix;
 
 	// Bias corrections
 
@@ -594,8 +601,8 @@ InnovationPressureStates ESKF::innovationPressureZ(const VectorXd& xnominal,cons
 	InnovationPressureStates pressureStates;
 	Matrix<double, NOMINAL_STATE_SIZE, ERROR_STATE_SIZE> X_deltaX;
 	Matrix<double, 1, NOMINAL_STATE_SIZE> Hx;
-	Matrix<double, 1, 2> zero1x2Matrix;
-	Matrix<double, 1, 13> zero1x13Matrix;
+	Matrix<double, 1, StateMemberZ> zero1x2Matrix;
+	Matrix<double, 1, ERROR_STATE_SIZE-StateMemberZ> zero1x13Matrix;
 	MatrixXd Q_deltaT(4, 3);
 	MatrixXd identity6x6Matrix(6, 6);
 	double zValue{ 1 };
@@ -626,6 +633,7 @@ InnovationPressureStates ESKF::innovationPressureZ(const VectorXd& xnominal,cons
 
 	X_deltaX.block<6, 6>(0, 0) = identity6x6Matrix;
 	X_deltaX.block<6, 6>(10, 9) = identity6x6Matrix;
+	X_deltaX.block<6, 6>()
 	Q_deltaT << -1.0 * eps_1, -1.0 * eps_2, -1.0 * eps_3,
 				eta, -1.0 * eps_3, eps_2,
 				eps_3, eta, -1.0 * eps_1,
