@@ -166,3 +166,77 @@ Matrix3d eulerToRotationMatrix(const Vector3d& eulerAngles)
 
 
 
+EulerAngles fromQuaternionToEulerAngles(const Quat& q) {
+    EulerAngles angles;
+
+    // roll (x-axis rotation)
+    double sinr_cosp = 2 * (q.w * q.x + q.y * q.z);
+    double cosr_cosp = 1 - 2 * (q.x * q.x + q.y * q.y);
+    angles.roll = std::atan2(sinr_cosp, cosr_cosp);
+
+    // pitch (y-axis rotation)
+    double sinp = 2 * (q.w * q.y - q.z * q.x);
+    if (std::abs(sinp) >= 1)
+        angles.pitch = std::copysign(M_PI / 2, sinp); // use 90 degrees if out of range
+    else
+        angles.pitch = std::asin(sinp);
+
+    // yaw (z-axis rotation)
+    double siny_cosp = 2 * (q.w * q.z + q.x * q.y);
+    double cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z);
+    angles.yaw = std::atan2(siny_cosp, cosy_cosp);
+
+    return angles;
+}
+
+Quat fromRPYToQuaternion(const EulerAngles& angles) // yaw (Z), pitch (Y), roll (X)
+{
+    // Abbreviations for the various angular functions
+    double cy = cos(angles.yaw * 0.5);
+    double sy = sin(angles.yaw * 0.5);
+    double cp = cos(angles.pitch * 0.5);
+    double sp = sin(angles.pitch * 0.5);
+    double cr = cos(angles.roll * 0.5);
+    double sr = sin(angles.roll * 0.5);
+
+    Quat q;
+    q.w = cy * cp * cr + sy * sp * sr;
+    q.x = cy * cp * sr - sy * sp * cr;
+    q.y = sy * cp * sr + cy * sp * cr;
+    q.z = sy * cp * cr - cy * sp * sr;
+
+    return q;
+}
+
+double meanOfVector(const std::vector<double>& vec)
+{
+	double sum = 0;
+
+    for (auto &each: vec)
+        sum += each;
+
+    return sum / vec.size();
+}
+
+double maxOfVector(const std::vector<double>& vec)
+{
+	double max = *std::max_element(vec.begin(), vec.end());
+	
+	return max;
+
+}
+
+double stanardDeviationOfVector(const std::vector<double>& vec)
+{
+	double square_sum_of_difference = 0;
+    double mean_var = meanOfVector(vec);
+    auto len = vec.size();
+
+    double tmp;
+    for (auto &each: vec) {
+        tmp = each - mean_var;
+        square_sum_of_difference += tmp * tmp;
+    }
+
+    return std::sqrt(square_sum_of_difference / (len - 1));
+}

@@ -5,7 +5,7 @@
 #include <math.h>
 #include <unsupported/Eigen/MatrixFunctions>
 
-//#include "ros_node.h"
+
 
 using namespace Eigen;
 
@@ -108,15 +108,17 @@ public:
 	VectorXd predictNominal(const VectorXd& xnominal,const Vector3d& accRectifiedMeasurements,const Vector3d& gyroRectifiedmeasurements,const double& Ts);
 	MatrixXd Aerr(const VectorXd& xnominal, const Vector3d& accRectifiedMeasurements, const Vector3d& gyroRectifiedmeasurements);
 	MatrixXd Gerr(const VectorXd& xnominal);
-	AdandGQGD discreteErrorMatrix(const VectorXd& xnominal,const Vector3d& accRectifiedMeasurements,const Vector3d& gyroRectifiedmeasurements, const double& Ts);
-	MatrixXd predictCovariance(const VectorXd& xnominal,const MatrixXd& P,const Vector3d& accRectifiedMeasurements,const Vector3d& gyroRectifiedmeasurements,const double& Ts);
-	void predict(Vector3d zAccMeasurements, Vector3d zGyroMeasurements,const double& Ts);
-	//StatePredictions predict(const VectorXd& xnominal,const MatrixXd& P, Vector3d zAccMeasurements, Vector3d zGyroMeasurements,const double& Ts);
+	AdandGQGD discreteErrorMatrix(const VectorXd& xnominal,const Vector3d& accRectifiedMeasurements,const Vector3d& gyroRectifiedmeasurements,const double& Ts, const Matrix3d& Racc, const Matrix3d& Rgyro);
+	MatrixXd predictCovariance(const VectorXd& xnominal,const MatrixXd& P,const Vector3d& accRectifiedMeasurements,const Vector3d& gyroRectifiedmeasurements,const double& Ts, const Matrix3d& Racc, const Matrix3d& Rgyro);
+	void predict(Vector3d zAccMeasurements, Vector3d zGyroMeasurements,const double& Ts, const Matrix3d& Racc, const Matrix3d& Rgyro);
 	StatesAndErrorCovariance inject(const VectorXd& xnominal,const VectorXd& deltaX,const MatrixXd& P);
 
 	// Lower computation time implementation
-	MatrixXd AerrDiscretized(const VectorXd& xnominal,const Vector3d& accRectifiedMeasurements,const Vector3d& gyroRectifiedmeasurements,const double& Ts);
+	MatrixXd AerrDiscretizedFirstOrder(const VectorXd& xnominal,const Vector3d& accRectifiedMeasurements,const Vector3d& gyroRectifiedmeasurements,const double& Ts);
+	MatrixXd AerrDiscretizedSecondOrder(const VectorXd& xnominal,const Vector3d& accRectifiedMeasurements,const Vector3d& gyroRectifiedmeasurements,const double& Ts);
+	MatrixXd AerrDiscretizedThirdOrder(const VectorXd& xnominal,const Vector3d& accRectifiedMeasurements,const Vector3d& gyroRectifiedmeasurements,const double& Ts);
 	MatrixXd Fi();
+	Matrix3d AngularErrorMatrix(const Vector3d& gyroRectifiedmeasurements,const double& Ts);
 
 	// DVL
 	InnovationDVLStates innovationDVL(const VectorXd& xnominal,const MatrixXd& P,const Vector3d& zDVLvel,const Matrix3d& RDVL);
@@ -134,7 +136,7 @@ public:
 
 	const inline MatrixXd getS_g() const
 	{
-		return Sg;
+		return Sg_;
 	}
 
 	const inline Vector3d getPosition() const
@@ -146,7 +148,7 @@ public:
 						1,0,0,
 						0,0,-1;
 		 
-		position = poseStates.block<NOMINAL_POSITION_STATE_SIZE,1>(NOMINAL_POSITION_STATE_OFFSET,0);
+		position = poseStates_.block<NOMINAL_POSITION_STATE_SIZE,1>(NOMINAL_POSITION_STATE_OFFSET,0);
 
 		//return R_ned_to_enu*position;
 		
@@ -169,7 +171,7 @@ public:
 						1,0,0,
 						0,0,-1;
 		 
-		velocity = poseStates.block<NOMINAL_VELOCITY_STATE_SIZE, 1>(NOMINAL_VELOCITY_STATE_OFFSET, 0);
+		velocity = poseStates_.block<NOMINAL_VELOCITY_STATE_SIZE, 1>(NOMINAL_VELOCITY_STATE_OFFSET, 0);
 
 		//return R_ned_to_enu*velocity;
 		
@@ -187,12 +189,12 @@ public:
 
 	const inline VectorXd getPose() const
 	{
-		return poseStates;
+		return poseStates_;
 	}
 
 	const inline MatrixXd getErrorCovariance() const
 	{
-		return errorStateCovariance;
+		return errorStateCovariance_;
 	}
 
 	
@@ -201,29 +203,35 @@ public:
 
 private:
 	bool use_ENU_;
-	double pgyroBias;
-	double paccBias;
+	double pgyroBias_;
+	double paccBias_;
 
-	const Vector3d gravity{ 0,0,GRAVITY };
+	const Vector3d gravity_{ 0,0,GRAVITY };
 
 	
-	Matrix3d Racc;		// Acceleration measurements covariance (3x3)
-	Matrix3d RaccBias;  // Acceleration bias driving noise covariance (3x3)
-	Matrix3d Rgyro;		// Gyro measurements covariance (3x3)
-	Matrix3d RgyroBias; // Gyro bias driving noise covariance (3x3)
+	Matrix3d Racc_;		// Acceleration measurements covariance (3x3)
+	Matrix3d RaccBias_;  // Acceleration bias driving noise covariance (3x3)
+	Matrix3d Rgyro_;		// Gyro measurements covariance (3x3)
+	Matrix3d RgyroBias_; // Gyro bias driving noise covariance (3x3)
 
-	MatrixXd D; // Diagonal block matrix with measurement covariances
+	MatrixXd D_; // Diagonal block matrix with measurement covariances
 
 
 	// Correction matricies
-	Matrix3d Sa; // Accelerometer
-	Matrix3d Sg; // Gyro
-	Matrix3d Sdvl; // DVL
-	Matrix3d Sinc; // Inclinometer
-	double SpressureZ; // Pressure
+	Matrix3d Sa_; // Accelerometer
+	Matrix3d Sg_; // Gyro
+	Matrix3d Sdvl_; // DVL
+	Matrix3d Sinc_; // Inclinometer
+	double SpressureZ_; // Pressure
 
-	VectorXd poseStates;
-	MatrixXd errorStateCovariance;
+	VectorXd poseStates_;
+	MatrixXd errorStateCovariance_;
+
+
+	// Execution time
+	std::vector<double> execution_time_vector_; 
+	bool publish_execution_time_;
+
 
 };
 

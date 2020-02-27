@@ -430,6 +430,7 @@ void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
     Vector3d raw_acceleration_measurements = Vector3d::Zero();
     Vector3d raw_gyro_measurements = Vector3d::Zero();
     Matrix3d R_acc = Matrix3d::Zero();
+    Matrix3d R_gyro = Matrix3d::Zero();
 
     Ts = (1.0/imu_publish_rate);
     raw_acceleration_measurements << imu_Message_data->linear_acceleration.x,
@@ -449,10 +450,16 @@ void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
                              imu_Message_data->angular_velocity.y,
                              imu_Message_data->angular_velocity.z;
 
-
+     for(size_t i = 0; i < 3;i++)
+    {
+        for(size_t j = 0; j<3;j++)
+        {
+            R_gyro(i,j) = imu_Message_data->angular_velocity_covariance[3*i+j];
+        }
+    }
 
     //ROS_INFO("Acceleration_x: %f",imu_Message_data->linear_acceleration.x);
-    eskf_.predict(raw_acceleration_measurements,raw_gyro_measurements,Ts);       
+    eskf_.predict(raw_acceleration_measurements,raw_gyro_measurements,Ts,R_acc,R_gyro);       
               
 }
 
@@ -525,6 +532,20 @@ void ESKF_Node::publishPoseState(const ros::TimerEvent&)
 
     //loadParametersFromYamlFile();
 
+    /*
+    Quat q;
+    EulerAngles euler;
+
+    q.w = odom_msg.pose.pose.orientation.w;
+    q.x = odom_msg.pose.pose.orientation.x;
+    q.y = odom_msg.pose.pose.orientation.y;
+    q.z = odom_msg.pose.pose.orientation.z;
+
+    euler = fromQuaternionToEulerAngles(q);
+    */
+    //std::cout<<"pitch: "<<euler.pitch*180/PI<<std::endl;
+    //std::cout<<"roll: "<<euler.roll*180/PI<<std::endl;
+    //std::cout<<"yaw: "<<euler.yaw*180/PI<<std::endl;
 
     /*
     // Position covariance
