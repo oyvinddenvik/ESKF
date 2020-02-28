@@ -75,10 +75,11 @@ struct InnovationPressureStates {
 };
 
 struct InnovationDVLStates {
-	MatrixXd DVLInnovation;
-	MatrixXd DVLInnovationCovariance;
-	MatrixXd DVLH;
+	Matrix<double,NOMINAL_VELOCITY_STATE_SIZE,1> DVLInnovation;
+	Matrix<double,NOMINAL_VELOCITY_STATE_SIZE,NOMINAL_VELOCITY_STATE_SIZE > DVLInnovationCovariance;
+	Matrix<double,NOMINAL_VELOCITY_STATE_SIZE,ERROR_STATE_SIZE> DVLH;
 };
+
 
 struct parametersInESKF 
 {
@@ -212,6 +213,11 @@ public:
 		}
 		
 		 
+	}
+
+	const inline Vector3d getGravity() const
+	{
+		return poseStates_.block<NOMINAL_GRAVITY_SIZE,1>(NOMINAL_GRAVITY_STATE_OFFSET,0); 
 	}
 
 	const inline VectorXd getPose() const

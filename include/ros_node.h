@@ -52,9 +52,6 @@ private:
     Matrix3d R_dvl_;
     Matrix<double,1,1> R_pressureZ_;
 
-
-    //VectorXd initialNominalState_;
-    //Matrix<double,ERROR_STATE_SIZE,ERROR_STATE_SIZE> initialP_;
    
     ESKF eskf_;
 

@@ -52,6 +52,7 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
     XmlRpc::XmlRpcValue initialPoseConfig;
     XmlRpc::XmlRpcValue initialCovarianceConfig;
 
+    
 
     if(ros::param::has("/R_acc"))
     {
@@ -69,24 +70,38 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
             }
         }
     }
+    else
+    {
+        ROS_FATAL("No measurement covariance for accelerometer (R_acc) set in parameter file!");
+        ROS_BREAK();  
+    }
+
 
     if(ros::param::has("/R_accBias"))
     {
         ros::param::get("/R_accBias", R_accBiasConfig);
+
         int matrix_size = parameters.R_accBias.rows();
 
         for(int i = 0; i < matrix_size; i++)
         {
             for(int j = 0; j <matrix_size; j++)
             {
-              std::ostringstream ostr;
-              ostr << R_accBiasConfig[matrix_size * i + j];
-              std::istringstream istr(ostr.str());
-              istr >> parameters.R_accBias(i, j);
+            std::ostringstream ostr;
+            ostr << R_accBiasConfig[matrix_size * i + j];
+            std::istringstream istr(ostr.str());
+            istr >> parameters.R_accBias(i, j);
             }
         }
     }
+    else
+    {
+        ROS_FATAL("No measurement covariance for accelerometer bias (R_accBias) set in parameter file!");
+        ROS_BREAK();  
+    }
+  
 
+ 
     if(ros::param::has("/R_gyro"))
     {
         ros::param::get("/R_gyro", R_gyroConfig);
@@ -102,6 +117,11 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
               istr >> parameters.R_gyro(i, j);
             }
         }
+    }
+    else
+    {
+        ROS_FATAL("No measurement covariance for gyro (R_gyro) set in parameter file");
+        ROS_BREAK();
     }
 
     if(ros::param::has("/R_gyroBias"))
@@ -120,13 +140,18 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
             }
         }
     }
+    else
+    {
+        ROS_FATAL("No measurement covariance for gyro bias (R_gyroBias) set in parameter file");
+        ROS_BREAK();
+    }
 
 
 
     
-    if(ros::param::has("/S_a"))
+    if(ros::param::has("/St_acc"))
     {
-        ros::param::get("/S_a", S_aConfig);
+        ros::param::get("/St_acc", S_aConfig);
         int matrix_size = parameters.S_a.rows();
 
         for(int i = 0; i < matrix_size; i++)
@@ -137,10 +162,15 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
               istr >> parameters.S_a(i);
         }
     }
-
-     if(ros::param::has("/S_g"))
+    else
     {
-        ros::param::get("/S_g", S_gConfig);
+        ROS_FATAL("No static transform for accelerometer (St_acc) set in parameter file");
+        ROS_BREAK();
+    }
+
+     if(ros::param::has("/St_gyro"))
+    {
+        ros::param::get("/St_gyro", S_gConfig);
         int matrix_size = parameters.S_g.rows();
 
         for(int i = 0; i < matrix_size; i++)
@@ -151,52 +181,16 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
               istr >> parameters.S_g(i);
         }
     }
-    
-    //std::cout<<parameters.S_g<<std::endl;
-    
-    /*
-    if(ros::param::has("/S_a"))
+    else
     {
-        ros::param::get("/S_a", S_aConfig);
-        int matrix_size = parameters.S_a.rows();
-
-        for(int i = 0; i < matrix_size; i++)
-        {
-            for(int j = 0; j <matrix_size; j++)
-            {
-              std::ostringstream ostr;
-              ostr << S_aConfig[matrix_size * i + j];
-              std::istringstream istr(ostr.str());
-              istr >> parameters.S_a(i, j);
-            }
-        }
+        ROS_FATAL("No static transform for gyro (St_gyro) set in parameter file");
+        ROS_BREAK();
     }
-    */
-    /*
-    if(ros::param::has("/S_g"))
+    
+
+    if(ros::param::has("/St_dvl"))
     {
-        ros::param::get("/S_g", S_gConfig);
-        int matrix_size = parameters.S_g.rows();
-
-        for(int i = 0; i < matrix_size; i++)
-        {
-            for(int j = 0; j <matrix_size; j++)
-            {
-              std::ostringstream ostr;
-              ostr << S_gConfig[matrix_size * i + j];
-              std::istringstream istr(ostr.str());
-              istr >> parameters.S_g(i, j);
-            }
-        }
-    }
-    */
-
-
-
-
-    if(ros::param::has("/S_dvl"))
-    {
-        ros::param::get("/S_dvl", S_dvlConfig);
+        ros::param::get("/St_dvl", S_dvlConfig);
         int matrix_size = parameters.S_dvl.rows();
 
         for(int i = 0; i < matrix_size; i++)
@@ -210,10 +204,16 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
             }
         }
     }
-
-    if(ros::param::has("/S_inc"))
+    else
     {
-        ros::param::get("/S_inc", S_incConfig);
+        ROS_FATAL("No static transform for DVL (St_dvl) set in parameter file");
+        ROS_BREAK();
+    }
+    
+
+    if(ros::param::has("/St_inc"))
+    {
+        ros::param::get("/St_inc", S_incConfig);
         int matrix_size = parameters.S_inc.rows();
 
         for(int i = 0; i < matrix_size; i++)
@@ -226,6 +226,11 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
               istr >> parameters.S_inc(i, j);
             }
         }
+    }
+    else
+    {
+        ROS_FATAL("No static transform for inclinometer (St_inc) set in parameter file");
+        ROS_BREAK();
     }
 
     
@@ -246,31 +251,43 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
             }
         }
     }
+    else
+    {
+        ROS_FATAL("No measurement covariance for DVL (R_dvl) set in parameter file");
+        ROS_BREAK();
+    }
 
     if(ros::param::has("/p_gyroBias"))
     {
         ros::param::get("/p_gyroBias", parameters.pgyroBias);
+    }
+    else
+    {
+        ROS_FATAL("No gyro bias driving noise (p_gyroBias) set in parameter file!");
+        ROS_BREAK();
     }
 
     if(ros::param::has("/p_accBias"))
     {
         ros::param::get("/p_accBias", parameters.paccBias);
     }
-
-    // Set default values
-
-    if(ros::param::has("/use_enu"))
+    else
     {
-        ros::param::get("/use_enu", parameters.use_ENU);
+        ROS_FATAL("No acceleration bias driving noise (p_accBias) set in parameter file!");
+        ROS_BREAK();
     }
 
-    //std::cout<<parameters.use_ENU<<std::endl;
-    /*
-    if(ros::param::has("/R_pressureZ"))
+
+    if(ros::param::has("/publish_in_ENU"))
     {
-        ros::param::get("/R_pressureZ", parameters.R_pressureZ);
+        ros::param::get("/publish_in_ENU", parameters.use_ENU);
     }
-    */
+    else
+    {
+        ROS_FATAL("No bool value set for publish_in_ENU in parameter file! ");
+        ROS_BREAK();
+    }
+
 
     if(ros::param::has("/R_pressureZ"))
     {
@@ -284,6 +301,11 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
               std::istringstream istr(ostr.str());
               istr >> parameters.R_pressureZ(i);
         }
+    }
+    else
+    {
+        ROS_FATAL("No measurement covariance for pressure sensor (R_pressureZ) set in parameter file!");
+        ROS_BREAK();
     }
 
      if(ros::param::has("/initial_pose"))
@@ -299,6 +321,13 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
               istr >> parameters.initial_pose(i);
         }
     }
+    else
+    {
+        ROS_FATAL("No initial pose (initial_pose) set in parameter file!");
+        ROS_BREAK();
+    }
+
+    
 
      if(ros::param::has("/initial_covariance"))
     {
@@ -316,11 +345,12 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
             }
         }
     }
+    else
+    {
+        ROS_FATAL("No initial covariance (initial_covariance) set in parameter file!");
+        ROS_BREAK();
+    }
 
-
-    //std::cout<<parameters.initial_covariance<<std::endl;
-
-    
 
     return parameters;
 
@@ -510,6 +540,7 @@ void ESKF_Node::publishPoseState(const ros::TimerEvent&)
     const Vector3d& position = eskf_.getPosition();
     const Vector3d& velocity = eskf_.getVelocity();
     const Vector4d& quaternion = eskf_.getQuaternion();
+    const Vector3d& gravity = eskf_.getGravity();
 
     //const VectorXd& pose = eskf_.getPose();
     //const MatrixXd& errorCovariance = eskf_.getErrorCovariance();
@@ -532,20 +563,24 @@ void ESKF_Node::publishPoseState(const ros::TimerEvent&)
     //loadParametersFromYamlFile();
 
     
-    //Quat q;
-    //EulerAngles euler;
+    Quat q;
+    EulerAngles euler;
 
-    //q.w = odom_msg.pose.pose.orientation.w;
-    //q.x = odom_msg.pose.pose.orientation.x;
-    //q.y = odom_msg.pose.pose.orientation.y;
-    //q.z = odom_msg.pose.pose.orientation.z;
+    q.w = odom_msg.pose.pose.orientation.w;
+    q.x = odom_msg.pose.pose.orientation.x;
+    q.y = odom_msg.pose.pose.orientation.y;
+    q.z = odom_msg.pose.pose.orientation.z;
 
-    //euler = fromQuaternionToEulerAngles(q);
+    euler = fromQuaternionToEulerAngles(q);
     
-    //std::cout<<"pitch: "<<euler.pitch*180/PI<<std::endl;
-    //std::cout<<"roll: "<<euler.roll*180/PI<<std::endl;
-    //std::cout<<"yaw: "<<euler.yaw*180/PI<<std::endl;
-
+    
+    std::cout<<"pitch: "<<euler.pitch*180/PI<<std::endl;
+    std::cout<<"roll: "<<euler.roll*180/PI<<std::endl;
+    std::cout<<"yaw: "<<euler.yaw*180/PI<<std::endl;
+    std::cout<<"gravity_X: "<<gravity(0)<<std::endl;
+    std::cout<<"gravity_Y: "<<gravity(1)<<std::endl;
+    std::cout<<"gravity_Z: "<<gravity(2)<<std::endl;
+    
     /*
     // Position covariance
     for(size_t i = 0; i < NOMINAL_POSITION_STATE_SIZE;i++)
