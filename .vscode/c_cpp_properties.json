@@ -6,13 +6,11 @@
                 "limitSymbolsToIncludedHeaders": true
             },
             "includePath": [
-                "/home/kjetil/catkin_ws/devel/include/**",
                 "/opt/ros/kinetic/include/**",
-                "/home/kjetil/catkin_ws/src/ESKF/include/**",
-                "/home/kjetil/catkin_ws/src/stim300_deprecated/drivers-imu_stim300/include/**",
+                "/home/vortex/manta_ws/src/ESKF/include/eskf/**",
                 "/usr/include/**",
-                "/home/vortex/sensor_fusion_ws/src/ESKF/include/**",
-                "${workspaceFolder}/include"
+                "${workspaceFolder}/include",
+                "${workspaceFolder}/include/eskf"
             ],
             "name": "ROS",
             "intelliSenseMode": "gcc-x64",

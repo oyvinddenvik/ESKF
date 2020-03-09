@@ -108,8 +108,12 @@ struct parametersInESKF
   Eigen::Matrix<double, 1, 1> R_pressureZ;
   double pgyroBias;
   double paccBias;
-  Eigen::Vector3d S_a;
-  Eigen::Vector3d S_g;
+  Eigen::Vector3d Sr_to_ned_accelerometer;
+  Eigen::Vector3d Sr_to_ned_gyro;
+  Eigen::Vector3d Sr_accelerometer_aligment;
+  Eigen::Vector3d Sr_gyro_aligment;
+  Eigen::Vector3d Sr_dvl_alignment;
+  Eigen::Vector3d Sr_pressureZ_alignment;
   // Eigen::Matrix<double,3,3> S_a;
   // Eigen::Matrix<double,3,3> S_g;
   Eigen::Matrix<double, 3, 3> S_dvl;
@@ -122,7 +126,7 @@ struct parametersInESKF
 class ESKF
 {
 public:
-  explicit ESKF(parametersInESKF&& parameters);
+  explicit ESKF(const parametersInESKF& parameters);
 
   explicit ESKF(Eigen::Matrix3d Racc, Eigen::Matrix3d RaccBias, Eigen::Matrix3d Rgyro, Eigen::Matrix3d RgyroBias, double pgyroBias, double paccBias,
                 Eigen::Matrix3d Sa, Eigen::Matrix3d Sg, Eigen::Matrix3d Sdvl, Eigen::Matrix3d Sinc);
@@ -147,6 +151,14 @@ public:
     }
   }
 
+  inline void setPositionAndQuaternion(Eigen::Vector3d position, Eigen::Vector4d quat)
+  {
+
+    optimizationParameters_.X.block<NOMINAL_POSITION_STATE_SIZE, 1>(NOMINAL_POSITION_STATE_OFFSET, 0) = position;
+    optimizationParameters_.X.block<NOMINAL_QUATERNION_STATE_SIZE,1>(NOMINAL_QUATERNION_STATE_OFFSET,0) = quat;
+  }
+
+  
   inline Eigen::Vector3d getPosition() const
   {
     Eigen::Matrix3d R_ned_to_enu = Eigen::Matrix3d::Zero();

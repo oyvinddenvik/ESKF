@@ -1,5 +1,4 @@
 #include "ESKF.h"
-
 #include <utility>
 #include "common.h"
 
@@ -44,6 +43,8 @@ ESKF::ESKF(Matrix3d Racc, Matrix3d RaccBias, Matrix3d Rgyro, Matrix3d RgyroBias,
   optimizationParameters_.P.block<3, 3>(15, 15) = initialPGravity.asDiagonal();
 }
 
+
+
 ESKF::ESKF(const parametersInESKF& parameters)
   : Racc_{ parameters.R_acc }
   , Rgyro_{ parameters.R_gyro }
@@ -51,8 +52,8 @@ ESKF::ESKF(const parametersInESKF& parameters)
   , RgyroBias_{ parameters.R_gyroBias }
   , Sdvl_{ parameters.S_dvl }
   , Sinc_{ parameters.S_inc }
-  , Sa_{ eulerToRotationMatrix(parameters.S_a) }
-  , Sg_{ eulerToRotationMatrix(parameters.S_g) }
+  , Sa_{ eulerToRotationMatrix(parameters.Sr_to_ned_accelerometer + parameters.Sr_accelerometer_aligment)} //+ eulerToRotationMatrix(parameters.Sr_accelerometer_aligment)}
+  , Sg_{ eulerToRotationMatrix(parameters.Sr_to_ned_gyro + parameters.Sr_gyro_aligment)} //+ eulerToRotationMatrix(parameters.Sr_gyro_aligment)}
   , pgyroBias_{ parameters.pgyroBias }
   , paccBias_{ parameters.paccBias }
   , use_ENU_{ parameters.use_ENU }
@@ -64,8 +65,13 @@ ESKF::ESKF(const parametersInESKF& parameters)
   std::cout << "R_gyroBias: " << parameters.R_gyroBias << std::endl;
   std::cout << "R_accBias: " << parameters.R_accBias << std::endl;
   std::cout << "S_DVL: " << parameters.S_dvl << std::endl;
-  std::cout << "S_a: " << parameters.S_a << std::endl;
-  std::cout << "S_g: " << parameters.S_g << std::endl;
+  std::cout << "Sr_to_ned_accelerometer: " << parameters.Sr_to_ned_accelerometer << std::endl;
+  std::cout << "Sr_to_ned_gyro: " << parameters.Sr_to_ned_gyro << std::endl;
+  std::cout << "Sr_accelerometer_alignment: "<<parameters.Sr_accelerometer_aligment << std::endl;
+  std::cout << "Sr_gyro_alignment: "<<parameters.Sr_gyro_aligment << std::endl; 
+  std::cout << "S_a: "<<Sa_<<std::endl;
+  std::cout << "Sr_to_ned_accelerometer + Sr_accelerometer_alignment: " << parameters.Sr_to_ned_accelerometer + parameters.Sr_accelerometer_aligment<< std::endl;
+
 }
 
 VectorXd ESKF::predictNominal(const VectorXd& xnominal, const Vector3d& accRectifiedMeasurements,
@@ -200,28 +206,14 @@ MatrixXd ESKF::AerrDiscretizedThirdOrder(const VectorXd& xnominal, const Vector3
   // Compute second order approximation of matrix exponentional taylor expansion
   // I_15x15 +A_err*Ts
 
-  MatrixXd A_err_discretized(ERROR_STATE_SIZE, ERROR_STATE_SIZE);
-  MatrixXd A_err(ERROR_STATE_SIZE, ERROR_STATE_SIZE);
-  MatrixXd identityMatrix(ERROR_STATE_SIZE, ERROR_STATE_SIZE);
-  Matrix3d R_wdeltaT = Matrix3d::Zero();
-  A_err.setZero();
-  identityMatrix.setIdentity();
+  Matrix3d R_wdeltaT = AngularErrorMatrix(gyroRectifiedmeasurements, Ts);
 
-  R_wdeltaT = AngularErrorMatrix(gyroRectifiedmeasurements, Ts);
+  MatrixXd A_err = Aerr(xnominal, accRectifiedMeasurements, gyroRectifiedmeasurements);
 
-  A_err = Aerr(xnominal, accRectifiedMeasurements, gyroRectifiedmeasurements);
-
-  A_err_discretized = identityMatrix + (A_err * Ts) + (0.5 * A_err * A_err * Ts * Ts) +
+  MatrixXd A_err_discretized = identityMatrix_ + (A_err * Ts) + (0.5 * A_err * A_err * Ts * Ts) +
                       ((1.0 / 6.0) * A_err * A_err * A_err * Ts * Ts * Ts);
 
   A_err_discretized.block<3, 3>(6, 6) = R_wdeltaT.transpose();
-
-  // Execution time
-  // auto end = std::chrono::steady_clock::now();
-
-  // auto diff = end - start;
-
-  // std::cout <<"Aerr_discretized: " <<std::chrono::duration <double, std::milli> (diff).count() << " ms" << std::endl;
 
   return A_err_discretized;
 }
@@ -295,7 +287,7 @@ AdandGQGD ESKF::discreteErrorMatrix(const VectorXd& xnominal, const Vector3d& ac
   // ERROR_STATE_SIZE).transpose(); errorMatrix.GQGD = vanLoanExponentional.block<ERROR_STATE_SIZE,
   // ERROR_STATE_SIZE>(ERROR_STATE_SIZE, ERROR_STATE_SIZE).transpose() * vanLoanExponentional.block<ERROR_STATE_SIZE,
   // ERROR_STATE_SIZE>(0, ERROR_STATE_SIZE);
-  errorMatrix.Ad = AerrDiscretizedSecondOrder(xnominal, accRectifiedMeasurements, gyroRectifiedmeasurements, Ts);
+  errorMatrix.Ad = AerrDiscretizedThirdOrder(xnominal, accRectifiedMeasurements, gyroRectifiedmeasurements, Ts);
   errorMatrix.GQGD = F_i_ * D_ * F_i_.transpose();
 
   // Execution time
@@ -323,6 +315,8 @@ MatrixXd ESKF::predictCovariance(const VectorXd& xnominal, const MatrixXd& P, co
 void ESKF::predict(const Vector3d& zAccMeasurements, const Vector3d& zGyroMeasurements, const double& Ts,
                    const Matrix3d& Racc, const Matrix3d& Rgyro)
 {
+  
+
   Vector3d accBias = Sa_ * optimizationParameters_.X.block<NOMINAL_ACC_BIAS_SIZE, 1>(NOMINAL_ACC_BIAS_STATE_OFFSET, 0);
   Vector3d gyroBias =
     Sg_ * optimizationParameters_.X.block<NOMINAL_GYRO_BIAS_SIZE, 1>(NOMINAL_GYRO_BIAS_STATE_OFFSET, 0);
@@ -333,6 +327,9 @@ void ESKF::predict(const Vector3d& zAccMeasurements, const Vector3d& zGyroMeasur
   optimizationParameters_.X = predictNominal(optimizationParameters_.X, accelerationRectified, gyroRectified, Ts);
   optimizationParameters_.P = predictCovariance(optimizationParameters_.X, optimizationParameters_.P,
                                                 accelerationRectified, gyroRectified, Ts, Racc, Rgyro);
+
+  
+                                              
 }
 
 StatesAndErrorCovariance ESKF::inject(const VectorXd& xnominal, const VectorXd& deltaX, const MatrixXd& P) const
@@ -416,7 +413,7 @@ InnovationParameters ESKF::innovationDVL(const VectorXd& xnominal, const MatrixX
 
   Matrix3d Hv{ nominalQuaternion.conjugate() };  // R_world_to_body
 
-  // Todo: use analyic version from Sola paper
+  // TODO: use analyic version from Sola paper
   MatrixXd jacobianMatrix = jacobianFdOfDVL(Hv * vel_world, nominalQuaternion.conjugate(), 0.000000001, vel_world);
 
   MatrixXd Hx{

@@ -2,6 +2,7 @@
 #include "ESKF.h"
 #include <Eigen/Core>
 #include "ros_node.h"
+#include "chrono"
 
 using namespace eskf;
 using namespace Eigen;
@@ -16,6 +17,39 @@ const Matrix3d returnStaticRotationFromIMUtoBodyFrame(const Vector3d& roll_pitch
     return static_S_a;
 }
 */
+
+double meanOfVector(const std::vector<double>& vec)
+{
+  double sum = 0;
+
+  for (auto& each : vec)
+    sum += each;
+
+  return sum / vec.size();
+}
+
+double maxOfVector(const std::vector<double>& vec)
+{
+  double max = *std::max_element(vec.begin(), vec.end());
+
+  return max;
+}
+
+double stanardDeviationOfVector(const std::vector<double>& vec)
+{
+  double square_sum_of_difference = 0;
+  double mean_var = meanOfVector(vec);
+  auto len = vec.size();
+
+  double tmp;
+  for (auto& each : vec)
+  {
+    tmp = each - mean_var;
+    square_sum_of_difference += tmp * tmp;
+  }
+
+  return std::sqrt(square_sum_of_difference / (len - 1));
+}
 
 void setIMUTopicNameFromYaml(std::string& imu_topic_name)
 {
@@ -119,6 +153,7 @@ ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh)
   : nh_{ pnh }
   , init_{ false }
   , eskf_{ loadParametersFromYamlFile() }
+  , publish_execution_time_{true}
   //,eskf_{R_ACC,R_ACCBIAS,R_GYRO,R_GYROBIAS,P_GYRO_BIAS,P_ACC_BIAS,returnStaticRotationFromIMUtoBodyFrame(roll_pitch_yaw_NED_and_alignment_corrected),returnStaticRotationFromIMUtoBodyFrame(roll_pitch_yaw_NED_and_alignment_corrected),S_DVL,S_INC}
 {
   R_dvl_.setZero();
@@ -160,6 +195,9 @@ ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh)
 // IMU Subscriber
 void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
 {
+
+  auto start = std::chrono::steady_clock::now();
+
   double Ts{ 0 };
   int imu_publish_rate{ DEFAULT_IMU_RATE };
   Vector3d raw_acceleration_measurements = Vector3d::Zero();
@@ -191,7 +229,33 @@ void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
   }
 
   // ROS_INFO("Acceleration_x: %f",imu_Message_data->linear_acceleration.x);
+
+  
+
   eskf_.predict(raw_acceleration_measurements, raw_gyro_measurements, Ts, R_acc, R_gyro);
+
+
+  // Execution time
+	auto end = std::chrono::steady_clock::now();
+
+	auto diff = end - start;
+
+	auto diff_in_ms = std::chrono::duration <double, std::milli> (diff).count();
+
+  //std::cout<<diff_in_ms<<std::endl;
+
+	
+	if(execution_time_vector_.size() == 1000 && publish_execution_time_ == true)
+	{
+		std::cout<<"Max value: "<<maxOfVector(execution_time_vector_)<<std::endl;
+		std::cout<<"Mean: "<<meanOfVector(execution_time_vector_)<<std::endl;
+		std::cout<<"STD: "<<stanardDeviationOfVector(execution_time_vector_)<<std::endl;
+		publish_execution_time_ = false;
+	}
+	else
+	{
+		execution_time_vector_.push_back(diff_in_ms);
+	}
 }
 
 // DVL subscriber
@@ -271,11 +335,11 @@ void ESKF_Node::publishPoseState(const ros::TimerEvent&)
   euler = fromQuaternionToEulerAngles(q);
 
   */
-  auto euler = quaternion.toRotationMatrix().eulerAngles(0, 1, 2) * 180.0 / 3.14;
-  std::cout << "Roll pitch yaw" << euler << std::endl;
-  std::cout << "gravity_X: " << gravity(0) << std::endl;
-  std::cout << "gravity_Y: " << gravity(1) << std::endl;
-  std::cout << "gravity_Z: " << gravity(2) << std::endl;
+  //auto euler = quaternion.toRotationMatrix().eulerAngles(0, 1, 2) * 180.0 / 3.14;
+  //std::cout << "Roll pitch yaw" << euler << std::endl;
+  //std::cout << "gravity_X: " << gravity(0) << std::endl;
+  //std::cout << "gravity_Y: " << gravity(1) << std::endl;
+  //std::cout << "gravity_Z: " << gravity(2) << std::endl;
 
   /*
   // Position covariance
@@ -314,15 +378,7 @@ void ESKF_Node::publishPoseState(const ros::TimerEvent&)
   // std::cout<<std::endl;
 }
 
-int main(int argc, char* argv[])
-{
-  ros::init(argc, argv, "eskf");
-  ros::NodeHandle nh;
-  ros::NodeHandle pnh("~");
-  ESKF_Node eskf_node(nh, pnh);
-  ros::spin();
-  return 0;
-}
+
 
 parametersInESKF ESKF_Node::loadParametersFromYamlFile()
 {
@@ -333,8 +389,10 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
   parameters.R_gyroBias.setZero();
   parameters.R_dvl.setZero();
   parameters.R_pressureZ.setZero();
-  parameters.S_a.setZero();
-  parameters.S_g.setZero();
+  parameters.Sr_to_ned_accelerometer.setZero();
+  parameters.Sr_to_ned_gyro.setZero();
+  parameters.Sr_accelerometer_aligment.setZero();
+  parameters.Sr_gyro_aligment.setZero();
   parameters.S_dvl.setZero();
   parameters.S_inc.setZero();
   parameters.paccBias = 0;
@@ -355,7 +413,10 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
   XmlRpc::XmlRpcValue R_accBiasConfig;
   XmlRpc::XmlRpcValue R_gyroConfig;
   XmlRpc::XmlRpcValue R_gyroBiasConfig;
-  XmlRpc::XmlRpcValue S_aConfig;
+  XmlRpc::XmlRpcValue St_to_ned_accelerometer_Config;
+  XmlRpc::XmlRpcValue St_to_ned_gyro_Config;
+  XmlRpc::XmlRpcValue St_accelerometer_alignment_Config;
+  XmlRpc::XmlRpcValue St_gyro_alignment_Config;
   XmlRpc::XmlRpcValue S_gConfig;
   XmlRpc::XmlRpcValue S_dvlConfig;
   XmlRpc::XmlRpcValue S_incConfig;
@@ -451,17 +512,17 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
     ROS_BREAK();
   }
 
-  if (ros::param::has("/St_acc"))
+  if (ros::param::has("/sr_accelerometer_to_NED"))
   {
-    ros::param::get("/St_acc", S_aConfig);
-    int matrix_size = parameters.S_a.rows();
+    ros::param::get("/sr_accelerometer_to_NED", St_to_ned_accelerometer_Config);
+    int matrix_size = parameters.Sr_to_ned_accelerometer.rows();
 
     for (int i = 0; i < matrix_size; i++)
     {
       std::ostringstream ostr;
-      ostr << S_aConfig[i];
+      ostr <<St_to_ned_accelerometer_Config[i];
       std::istringstream istr(ostr.str());
-      istr >> parameters.S_a(i);
+      istr >> parameters.Sr_to_ned_accelerometer(i);
     }
   }
   else
@@ -470,17 +531,57 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
     ROS_BREAK();
   }
 
-  if (ros::param::has("/St_gyro"))
+  if (ros::param::has("/sr_gyro_to_NED"))
   {
-    ros::param::get("/St_gyro", S_gConfig);
-    int matrix_size = parameters.S_g.rows();
+    ros::param::get("/sr_gyro_to_NED", St_to_ned_gyro_Config);
+    int matrix_size = parameters.Sr_to_ned_gyro.rows();
 
     for (int i = 0; i < matrix_size; i++)
     {
       std::ostringstream ostr;
-      ostr << S_gConfig[i];
+      ostr << St_to_ned_gyro_Config[i];
       std::istringstream istr(ostr.str());
-      istr >> parameters.S_g(i);
+      istr >> parameters.Sr_to_ned_gyro(i);
+    }
+  }
+  else
+  {
+    ROS_FATAL("No static transform for gyro (St_gyro) set in parameter file");
+    ROS_BREAK();
+  }
+
+  if (ros::param::has("/sr_accelerometer_alignment"))
+  {
+    ros::param::get("/sr_accelerometer_alignment", St_accelerometer_alignment_Config);
+    int matrix_size = parameters.Sr_accelerometer_aligment.rows();
+
+    for (int i = 0; i < matrix_size; i++)
+    {
+      std::ostringstream ostr;
+      ostr << St_accelerometer_alignment_Config[i];
+      std::istringstream istr(ostr.str());
+      istr >> parameters.Sr_accelerometer_aligment(i);
+    }
+  }
+  else
+  {
+    ROS_FATAL("No static transform for gyro (St_gyro) set in parameter file");
+    ROS_BREAK();
+  }
+
+
+
+  if (ros::param::has("/sr_gyro_alignment"))
+  {
+    ros::param::get("/sr_gyro_alignment", St_gyro_alignment_Config);
+    int matrix_size = parameters.Sr_gyro_aligment.rows();
+
+    for (int i = 0; i < matrix_size; i++)
+    {
+      std::ostringstream ostr;
+      ostr << St_gyro_alignment_Config[i];
+      std::istringstream istr(ostr.str());
+      istr >> parameters.Sr_gyro_aligment(i);
     }
   }
   else
@@ -646,4 +747,15 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
   }
 
   return parameters;
+}
+
+
+int main(int argc, char* argv[])
+{
+  ros::init(argc, argv, "eskf");
+  ros::NodeHandle nh;
+  ros::NodeHandle pnh("~");
+  ESKF_Node eskf_node(nh, pnh);
+  ros::spin();
+  return 0;
 }

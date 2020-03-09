@@ -1,6 +1,6 @@
-R_acc: [4, 0.0, 0.0,
-        0.0, 4, 0.0,
-        0.0, 0.0, 4 ]
+R_acc: [4.0, 0.0, 0.0,
+        0.0, 4.0, 0.0,
+        0.0, 0.0, 4.0 ]
 
 R_accBias: [6e-5, 0.0, 0.0,
             0.0, 6e-5, 0.0,
@@ -20,9 +20,15 @@ R_dvl: [1.0e-10, 0.0, 0.0,
 
 R_pressureZ: [2.2500] 
 
-St_acc: [-0.004397,3.1866482,0] # Static transform (roll, pitch, yaw) using NED
+#St_acc: [-0.004397,3.1866482,0] # Static transform (roll, pitch, yaw) using NED
 
-St_gyro: [-0.004397,3.1866482,0] # Static transform (roll, pitch, yaw) using NED
+sr_accelerometer_to_NED: [0.0,3.1415926,0] #[-0.004397,3.1866482,0]  # Static rotation (roll, pitch, yaw) using NED
+
+sr_gyro_to_NED: [0.0,3.1415926,0] #[-0.004397,3.1866482,0] # # Static rotation (roll, pitch, yaw) using NED
+
+sr_accelerometer_alignment: [-0.004397,0.0450556,0] # Static alignment (roll, pitch, yaw) using NED
+
+sr_gyro_alignment: [-0.004397,0.0450556,0] # Static alignment (roll, pitch, yaw) using NED
 
 #S_a: [-0.9990, 1.9804e-04, -0.0450,
 #       1.3553e-20, 1.0, 0.0044,
@@ -76,9 +82,9 @@ initial_covariance: [1e-9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3e-18, 0, 0, 0, 0, 0,
                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3e-18, 0, 0, 0, 0,
                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3e-18, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3e-1, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3e-1, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3e-1 ]
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3e-3, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3e-3, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3e-3 ]
 
 
 

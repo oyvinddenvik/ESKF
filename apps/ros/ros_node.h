@@ -63,4 +63,15 @@ private:
   void dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data);
   void publishPoseState(const ros::TimerEvent&);
   void pressureZCallback(const nav_msgs::Odometry::ConstPtr& pressureZ_Message_data);
+
+
+
+  // Execution time
+	std::vector<double> execution_time_vector_; 
+	bool publish_execution_time_;
+
 };
+
+double meanOfVector(const std::vector<double>& vec);
+double maxOfVector(const std::vector<double>& vec);
+double stanardDeviationOfVector(const std::vector<double>& vec);
