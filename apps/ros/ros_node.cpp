@@ -18,6 +18,7 @@ const Matrix3d returnStaticRotationFromIMUtoBodyFrame(const Vector3d& roll_pitch
 }
 */
 
+/*
 double meanOfVector(const std::vector<double>& vec)
 {
   double sum = 0;
@@ -50,6 +51,7 @@ double stanardDeviationOfVector(const std::vector<double>& vec)
 
   return std::sqrt(square_sum_of_difference / (len - 1));
 }
+*/
 
 void setIMUTopicNameFromYaml(std::string& imu_topic_name)
 {
@@ -276,7 +278,7 @@ void ESKF_Node::dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data
   }
 
   // ROS_INFO("Velocity_z: %f",dvl_Message_data->twist.twist.linear.z);
-  eskf_.updateDVL(raw_dvl_measurements, R_dvl_);
+  //eskf_.updateDVL(raw_dvl_measurements, R_dvl_);
 }
 
 // PressureZ subscriber
@@ -290,7 +292,7 @@ void ESKF_Node::pressureZCallback(const nav_msgs::Odometry::ConstPtr& pressureZ_
   // std::cout<<RpressureZ<<std::endl;
   // const double R_pressureZ = 2.2500;
 
-  eskf_.updatePressureZ(raw_pressure_z, R_pressureZ_);
+  //eskf_.updatePressureZ(raw_pressure_z, R_pressureZ_);
 }
 
 void ESKF_Node::publishPoseState(const ros::TimerEvent&)
@@ -752,10 +754,17 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
 
 int main(int argc, char* argv[])
 {
+  /*
   ros::init(argc, argv, "eskf");
   ros::NodeHandle nh;
   ros::NodeHandle pnh("~");
   ESKF_Node eskf_node(nh, pnh);
   ros::spin();
+
+  */
+
+
+
+
   return 0;
 }

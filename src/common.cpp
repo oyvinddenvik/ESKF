@@ -179,35 +179,3 @@ Quat fromRPYToQuaternion(const EulerAngles& angles)  // yaw (Z), pitch (Y), roll
   return q;
 }
 
-double meanOfVector(const std::vector<double>& vec)
-{
-  double sum = 0;
-
-  for (auto& each : vec)
-    sum += each;
-
-  return sum / vec.size();
-}
-
-double maxOfVector(const std::vector<double>& vec)
-{
-  double max = *std::max_element(vec.begin(), vec.end());
-
-  return max;
-}
-
-double stanardDeviationOfVector(const std::vector<double>& vec)
-{
-  double square_sum_of_difference = 0;
-  double mean_var = meanOfVector(vec);
-  auto len = vec.size();
-
-  double tmp;
-  for (auto& each : vec)
-  {
-    tmp = each - mean_var;
-    square_sum_of_difference += tmp * tmp;
-  }
-
-  return std::sqrt(square_sum_of_difference / (len - 1));
-}

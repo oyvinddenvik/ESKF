@@ -1,6 +1,7 @@
 #include "ESKF.h"
 #include <utility>
 #include "common.h"
+#include <vector>
 
 using namespace eskf;
 
@@ -366,12 +367,13 @@ StatesAndErrorCovariance ESKF::inject(const VectorXd& xnominal, const VectorXd& 
   return injections;
 }
 
-InnovationParameters ESKF::innovationPressureZ(const VectorXd& xnominal, const MatrixXd& P, const double& zPressureZpos,
-                                               const MatrixXd& RpressureZ)
+InnovationParameters ESKF::innovationPosition(const VectorXd& xnominal, const MatrixXd& P, const VectorXd& positionMeasurement, const MatrixXd& RPosition, const std::vector<int>& indexXYZ)
 {
-  double zValue{ 1 };
+  assert(positionMeasurement.rows() <= 3 && "position Measurements rows are greater than 3");
+  assert(indexXYZ.size() <= 3 && "indexXYZ size is greater than 3");
+
   // Measurement Matrix
-  MatrixXd Hx{ (MatrixXd(1, NOMINAL_STATE_SIZE) << MatrixXd::Zero(1, 2), zValue, MatrixXd::Zero(1, 16)).finished() };
+  MatrixXd Hx{ (MatrixXd(positionMeasurement.rows(), NOMINAL_STATE_SIZE) << MatrixXd::Zero(positionMeasurement.rows(), NOMINAL_POSITION_STATE_SIZE-positionMeasurement.rows()), MatrixXd::Identity(positionMeasurement.rows(),positionMeasurement.rows()), MatrixXd::Zero(positionMeasurement.rows(), NOMINAL_STATE_SIZE-positionMeasurement.rows())).finished() };
 
   MatrixXd Q_deltaT{ (MatrixXd(4, 3) << -xnominal(7), -xnominal(8), -xnominal(9), xnominal(6), -xnominal(9),
                       xnominal(8), xnominal(9), xnominal(6), -xnominal(7), -xnominal(8), xnominal(7), xnominal(6))
@@ -381,33 +383,44 @@ InnovationParameters ESKF::innovationPressureZ(const VectorXd& xnominal, const M
   MatrixXd X_deltaX{ MatrixXd::Identity(NOMINAL_STATE_SIZE, ERROR_STATE_SIZE) };
   X_deltaX.block<4, 3>(6, 6) = Q_deltaT;
 
-  InnovationParameters pressureStates(1);
-  pressureStates.jacobianOfErrorStates = Hx * X_deltaX;
-  pressureStates.measurementStates(0) = zPressureZpos - xnominal(StateMemberZ);
-  pressureStates.measurementCovariance =
-    (pressureStates.jacobianOfErrorStates * P * pressureStates.jacobianOfErrorStates.transpose()) + RpressureZ;
+  InnovationParameters positionStates(positionMeasurement.rows());
+  positionStates.jacobianOfErrorStates = Hx * X_deltaX;
+  for(u_int8_t i{0}; i<positionMeasurement.rows();++i)
+  {
+    positionStates.measurementStates(i) = positionMeasurement(i) - xnominal(i);
+  }
+  positionStates.measurementCovariance =
+    (positionStates.jacobianOfErrorStates * P * positionStates.jacobianOfErrorStates.transpose()) + RPosition;
 
-  return pressureStates;
+  return positionStates;
 }
 
-void ESKF::updatePressureZ(const double& zPressureZpos, const MatrixXd& RpressureZ)
+void ESKF::updatePosition(const VectorXd& rawPosition, const MatrixXd& RPosition)
 {
-  InnovationParameters pressureStates =
-    innovationPressureZ(optimizationParameters_.X, optimizationParameters_.P, zPressureZpos, RpressureZ);
+  assert(rawPosition.rows() <= 3 && "position Measurements rows are greater than 3");
+
+  InnovationParameters positionStates =
+    innovationPosition(optimizationParameters_.X, optimizationParameters_.P, rawPosition, RPosition);
 
   // ESKF Update step
-  MatrixXd kalmanGain = optimizationParameters_.P * pressureStates.jacobianOfErrorStates.transpose() *
-                        pressureStates.measurementCovariance.inverse();
-  MatrixXd deltaX = kalmanGain * pressureStates.measurementStates;
+  MatrixXd kalmanGain = optimizationParameters_.P * positionStates.jacobianOfErrorStates.transpose() *
+                        positionStates.measurementCovariance.inverse();
+  MatrixXd deltaX = kalmanGain * positionStates.measurementStates;
   MatrixXd pUpdate =
-    (identityMatrix_ - (kalmanGain * pressureStates.jacobianOfErrorStates)) * optimizationParameters_.P;
+    (identityMatrix_ - (kalmanGain * positionStates.jacobianOfErrorStates)) * optimizationParameters_.P;
   optimizationParameters_ = inject(optimizationParameters_.X, deltaX, pUpdate);
 }
 
-InnovationParameters ESKF::innovationDVL(const VectorXd& xnominal, const MatrixXd& P, const Vector3d& zDVLvel,
-                                         const Matrix3d& RDVL) const
+InnovationParameters ESKF::innovationVelocity(const VectorXd& xnominal, const MatrixXd& P, const VectorXd& velocityMeasurement,
+                                         const MatrixXd& RVel, const std::vector<int>& indexXYZ) const
 {
-  Vector3d vel_world = xnominal.block<NOMINAL_VELOCITY_STATE_SIZE, 1>(NOMINAL_VELOCITY_STATE_OFFSET, 0);
+  
+  assert(velocityMeasurement.rows() <= 3 && "velocity Measurements rows are greater than 3");
+  assert(indexXYZ.size() <= 3 && "indexXYZ size is greater than 3");
+
+  Matrix<double,3,1> vel_world;
+  vel_world.setZero();
+
   Quaterniond nominalQuaternion{ optimizationParameters_.X(StateMemberQw), optimizationParameters_.X(StateMemberQx),
                                  optimizationParameters_.X(StateMemberQy), optimizationParameters_.X(StateMemberQz) };
 
@@ -416,9 +429,49 @@ InnovationParameters ESKF::innovationDVL(const VectorXd& xnominal, const MatrixX
   // TODO: use analyic version from Sola paper
   MatrixXd jacobianMatrix = jacobianFdOfDVL(Hv * vel_world, nominalQuaternion.conjugate(), 0.000000001, vel_world);
 
-  MatrixXd Hx{
-    (MatrixXd(3, NOMINAL_STATE_SIZE) << Matrix3d::Zero(), Hv, jacobianMatrix, MatrixXd::Zero(3, 9)).finished()
+
+  std::vector<MatrixXd> getColumnOfHv;
+  std::vector<MatrixXd> getRowsOfJacobianMatrix;
+  for (auto i : indexXYZ)
+  {
+    vel_world(i) = xnominal(NOMINAL_VELOCITY_STATE_OFFSET + i);
+
+    getColumnOfHv.push_back(Hv.block(0,i,3,1));
+    getRowsOfJacobianMatrix.push_back(jacobianMatrix.block(i,0,1,4));
+
+    //MatrixXd getColumnOfHv{Hv.block(0,0,3,i)};
+    //MatrixXd getRowsOfJacobianMatrix{jacobianMatrix.block(0,0,i,4)};
   };
+
+  MatrixXd columnsOfHv;
+
+  for(u_int8_t i{0}; i<getColumnOfHv.size();++i)
+  {
+    columnsOfHv.block<3,1>(0,i) = getColumnOfHv[i];
+  }
+
+  MatrixXd rowsOfJacobianMatrix;
+
+  for(u_int8_t i{0}; i<getRowsOfJacobianMatrix.size();++i)
+  {
+    rowsOfJacobianMatrix.block<1,3>(i,0) = getRowsOfJacobianMatrix[i];
+  }
+
+  MatrixXd Hx{
+  (MatrixXd(indexXYZ.size(), NOMINAL_STATE_SIZE) << MatrixXd::Zero(velocityMeasurement.rows(), NOMINAL_POSITION_STATE_SIZE-indexXYZ.size()), columnsOfHv.transpose(), rowsOfJacobianMatrix, MatrixXd::Zero(indexXYZ.size(), NOMINAL_STATE_SIZE-indexXYZ.size())).finished()
+  };
+
+  /*
+  for(u_int8_t i{0}; i<velocityMeasurement.rows();++i)
+  {
+    vel_world(i) = xnominal(NOMINAL_VELOCITY_STATE_OFFSET + i);
+  }
+  
+  //xnominal.block<NOMINAL_VELOCITY_STATE_SIZE, 1>(NOMINAL_VELOCITY_STATE_OFFSET, 0);
+  MatrixXd Hx{
+    (MatrixXd(velocityMeasurement.rows(), NOMINAL_STATE_SIZE) << MatrixXd::Zero(velocityMeasurement.rows(), NOMINAL_POSITION_STATE_SIZE-velocityMeasurement.rows()), getColumnOfHv.transpose(), getRowsOfJacobianMatrix, MatrixXd::Zero(velocityMeasurement.rows(), NOMINAL_STATE_SIZE-velocityMeasurement.rows())).finished()
+  };
+  */
 
   MatrixXd Q_deltaT{ (MatrixXd(4, 3) << -nominalQuaternion.x(), -nominalQuaternion.y(), -nominalQuaternion.z(),
                       nominalQuaternion.w(), -nominalQuaternion.z(), nominalQuaternion.y(), nominalQuaternion.z(),
@@ -430,24 +483,63 @@ InnovationParameters ESKF::innovationDVL(const VectorXd& xnominal, const MatrixX
   MatrixXd X_deltaX{ MatrixXd::Identity(NOMINAL_STATE_SIZE, ERROR_STATE_SIZE) };
   X_deltaX.block<4, 3>(6, 6) = Q_deltaT;
 
-  InnovationParameters dvlStates(3);
-  dvlStates.jacobianOfErrorStates = Hx * X_deltaX;
-  dvlStates.measurementStates = zDVLvel - Hv * vel_world;
-  dvlStates.measurementCovariance =
-    (dvlStates.jacobianOfErrorStates * P * dvlStates.jacobianOfErrorStates.transpose()) + RDVL;
+  InnovationParameters velocityStates(velocityMeasurement.rows());
+  velocityStates.jacobianOfErrorStates = Hx * X_deltaX;
 
-  return dvlStates;
+  //velocityStates.measurementStates = velocityMeasurement - Hv * vel_world;
+
+
+  velocityStates.measurementStates.block(0,0,velocityMeasurement.rows(),1) = velocityMeasurement - Hv.block(0,0,velocityMeasurement.rows(),3) * vel_world.block(0,0,velocityMeasurement.rows(),1);
+  
+
+  for (auto i : indexXYZ)
+  {
+    velocityStates.measurementStates.block(0,0,indexXYZ.size(),1) = velocityMeasurement - columnsOfHv * vel_world.block(i,0,indexXYZ.size(),1);
+  }
+
+  velocityStates.measurementCovariance =
+    (velocityStates.jacobianOfErrorStates * P * velocityStates.jacobianOfErrorStates.transpose()) + RVel;
+
+  return velocityStates;
 }
 
-void ESKF::updateDVL(const Vector3d& zDVLvel, const Matrix3d& RDVL)
+void ESKF::updateVelocity(const VectorXd& velocityMeasurement, const MatrixXd& RVel, const std::vector<int>& indexXYZ)
 {
-  InnovationParameters DVLstates{ 3 };
-  DVLstates = innovationDVL(optimizationParameters_.X, optimizationParameters_.P, zDVLvel, RDVL);
+  InnovationParameters velocitystates{ velocityMeasurement.rows() };
+  velocitystates = innovationVelocity(optimizationParameters_.X, optimizationParameters_.P, velocityMeasurement, RVel, indexXYZ);
 
   MatrixXd kalmanGain =
-    optimizationParameters_.P * DVLstates.jacobianOfErrorStates.transpose() * DVLstates.measurementCovariance.inverse();
-  MatrixXd deltaX = kalmanGain * DVLstates.measurementStates;
-  MatrixXd pUpdate = (identityMatrix_ - (kalmanGain * DVLstates.jacobianOfErrorStates)) * optimizationParameters_.P;
+    optimizationParameters_.P * velocitystates.jacobianOfErrorStates.transpose() * velocitystates.measurementCovariance.inverse();
+  MatrixXd deltaX = kalmanGain * velocitystates.measurementStates;
+  MatrixXd pUpdate = (identityMatrix_ - (kalmanGain * velocitystates.jacobianOfErrorStates)) * optimizationParameters_.P;
 
   optimizationParameters_ = inject(optimizationParameters_.X, deltaX, pUpdate);
+}
+
+
+void updatePose(const VectorXd& rawMeasurement, const MatrixXd& RPose,const Matrix<bool,3,3> sensorStateConfig)
+{
+
+  // Get position from sensor_state_config
+
+
+  std::vector<int> a;
+
+  for(u_int8_t i{0}; i<sensorStateConfig.rows();++i)
+  {
+      for(u_int8_t j{0}; i < sensorStateConfig.cols(); ++j){
+        if sensorStateConfig(i,j)
+        {
+          a.push_back(i*3+j);
+        }   
+      }
+  }
+
+
+
+
+
+
+
+
 }

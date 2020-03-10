@@ -98,6 +98,8 @@ struct InnovationParameters
   }
 };
 
+
+
 struct parametersInESKF
 {
   Eigen::Matrix<double, 3, 3> R_acc;
@@ -112,8 +114,6 @@ struct parametersInESKF
   Eigen::Vector3d Sr_to_ned_gyro;
   Eigen::Vector3d Sr_accelerometer_aligment;
   Eigen::Vector3d Sr_gyro_aligment;
-  Eigen::Vector3d Sr_dvl_alignment;
-  Eigen::Vector3d Sr_pressureZ_alignment;
   // Eigen::Matrix<double,3,3> S_a;
   // Eigen::Matrix<double,3,3> S_g;
   Eigen::Matrix<double, 3, 3> S_dvl;
@@ -133,8 +133,11 @@ public:
 
   void predict(const Eigen::Vector3d& zAccMeasurements, const Eigen::Vector3d& zGyroMeasurements, const double& Ts,
                const Eigen::Matrix3d& Racc, const Eigen::Matrix3d& Rgyro);
-  void updateDVL(const Eigen::Vector3d& zDVLvel, const Eigen::Matrix3d& RDVL);
-  void updatePressureZ(const double& zPressureZpos, const Eigen::MatrixXd& RpressureZ);
+
+  void updatePose(const Eigen::VectorXd& rawMeasurements, const Eigen::Matrix<bool,3,3> sensorStateConfig);
+
+  void updateVelocity(const VectorXd& velocityMeasurement, const MatrixXd& RVel, const std::vector<int>& indexXYZ);
+  void updatePosition(const VectorXd& rawPosition, const MatrixXd& RPosition);
 
   // void setParametersInESKF(const parametersInESKF& parameters);
   inline Eigen::Quaterniond getQuaternion() const
@@ -224,6 +227,20 @@ private:
   AdandGQGD discreteErrorMatrix(const Eigen::VectorXd& xnominal, const Eigen::Vector3d& accRectifiedMeasurements,
                                 const Eigen::Vector3d& gyroRectifiedmeasurements, const double& Ts, const Eigen::Matrix3d& Racc,
                                 const Eigen::Matrix3d& Rgyro) const;
+
+  Eigen::MatrixXd Aerr(const Eigen::VectorXd& xnominal, const Eigen::Vector3d& accRectifiedMeasurements,
+                const Eigen::Vector3d& gyroRectifiedmeasurements) const;
+
+  StatesAndErrorCovariance inject(const Eigen::VectorXd& xnominal, const Eigen::VectorXd& deltaX, const Eigen::MatrixXd& P) const;
+
+  InnovationParameters innovationVelocity(const VectorXd& xnominal, const MatrixXd& P, const VectorXd& velocityMeasurement,
+                                         const MatrixXd& RVel, const std::vector<int>& indexXYZ) const;
+
+  static InnovationParameters innovationPosition(const VectorXd& xnominal, const MatrixXd& P, const VectorXd& positionMeasurement, const MatrixXd& RPosition);  
+  InnovationParameters innovationPose(const Eigen::VectorXd& xnominal, const Eigen::MatrixXd& P, const Eigen::VectorXd& rawMeasurements, const Eigen::MatrixXd RPose);
+
+  static Eigen::MatrixXd Gerr(const Eigen::VectorXd& xnominal);
+
   // Lower computation time implementation
   Eigen::MatrixXd AerrDiscretizedFirstOrder(const Eigen::VectorXd& xnominal, const Eigen::Vector3d& accRectifiedMeasurements,
                                      const Eigen::Vector3d& gyroRectifiedmeasurements, const double& Ts) const;
@@ -234,17 +251,8 @@ private:
 
   Eigen::Matrix3d AngularErrorMatrix(const Eigen::Vector3d& gyroRectifiedmeasurements, const double& Ts) const;
 
-  Eigen::MatrixXd Aerr(const Eigen::VectorXd& xnominal, const Eigen::Vector3d& accRectifiedMeasurements,
-                const Eigen::Vector3d& gyroRectifiedmeasurements) const;
 
-  StatesAndErrorCovariance inject(const Eigen::VectorXd& xnominal, const Eigen::VectorXd& deltaX, const Eigen::MatrixXd& P) const;
 
-  InnovationParameters innovationDVL(const Eigen::VectorXd& xnominal, const Eigen::MatrixXd& P, const Eigen::Vector3d& zDVLvel,
-                                     const Eigen::Matrix3d& RDVL) const;
-  static InnovationParameters innovationPressureZ(const Eigen::VectorXd& xnominal, const Eigen::MatrixXd& P,
-                                                  const double& zPressureZpos, const Eigen::MatrixXd& RpressureZ);
-
-  static Eigen::MatrixXd Gerr(const Eigen::VectorXd& xnominal);
 
   bool use_ENU_{ false };
   double pgyroBias_;
@@ -260,6 +268,7 @@ private:
   // Eigen::MatrixXd D_ {blk3x3Diag(Racc_, Rgyro_, RaccBias_, RgyroBias_)};  // Diagonal block Eigen::matrix with measurement
   // covariances
   Eigen::MatrixXd D_;
+
   // Correction matricies
   Eigen::Matrix3d Sa_{ Eigen::Matrix3d::Zero() };    // Accelerometer
   Eigen::Matrix3d Sg_{ Eigen::Matrix3d::Zero() };    // Gyro
@@ -272,8 +281,6 @@ private:
   static Eigen::MatrixXd Fi();
   const Eigen::Matrix<double, ERROR_STATE_SIZE, 12> F_i_{ Fi() };
   const Eigen::MatrixXd identityMatrix_{ Eigen::MatrixXd::Identity(ERROR_STATE_SIZE, ERROR_STATE_SIZE) };
-  // Execution time
-  // std::vector<double> execution_time_vector_;
   bool publish_execution_time_{ false };
 };
 }  // namespace eskf

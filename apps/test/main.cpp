@@ -3,8 +3,10 @@
 
 using namespace Eigen;
 
-int main(int argc, char *argv[])
+int main()
 {
+
+
     /*
     ros::init(argc,argv,"eskf");
     ros::NodeHandle nh;
@@ -14,7 +16,7 @@ int main(int argc, char *argv[])
     return 0;
     */
 
-  
+  /*
   // Matrix3d test = Matrix3d::Zero();
 
   // double* arraytesting= test.data();
@@ -94,6 +96,8 @@ int main(int argc, char *argv[])
   auto diff = end - start;
   std::cout << "predictnominal: " << std::chrono::duration<double, std::milli>(diff).count() / 10000 << " ms"
             << std::endl;
+
+  */
   // pressureTesting = eskf.innovationPressureZ(xnominal, P, pressureValue, RpressureZ);
   // injectionPressureTesting = eskf.updatePressureZ(xnominal, P, pressureValue, RpressureZ);
   // dvlstatetesting = eskf.innovationDVL(xnominal, P, ZdvlValues, RDVL);

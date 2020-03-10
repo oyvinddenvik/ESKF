@@ -42,11 +42,28 @@ p_accBias: 0.0001
 
 ## Sensors
 
+pose_topic_0: "/manta/dvl"
+
+pose_0_states: [false, false, false,  # x, y, z
+                true, true, true,     # vx, vy, vz
+                false, false, false]  # roll, pitch, yaw
+               
+R_pose_0: [1.0e-10, 0.0, 0.0,
+         0.0, 1.0e-10, 0.0,
+         0.0, 0.0, 1.0e-10 ]
+
+sr_odom_0_to_NED: [0.0,0.0,0.0]
+
+sr_odom_0_alignment: [0.0,0.0,0.0]
+
+
+################
+
 dvl_topic: "/manta/dvl"
 
 R_dvl: [1.0e-10, 0.0, 0.0,
          0.0, 1.0e-10, 0.0,
-         0.0, 0.0, 1.0e-10 ] 
+         0.0, 0.0, 1.0e-10 ]
 
 St_dvl: [1.0, 0.0, 0.0,
         0.0, 1.0, 0.0,
