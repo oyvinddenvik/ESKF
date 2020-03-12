@@ -50,7 +50,7 @@ ESKF::ESKF(const parametersInESKF& parameters)
   , Rgyro_{ parameters.R_gyro }
   , RaccBias_{ parameters.R_accBias }
   , RgyroBias_{ parameters.R_gyroBias }
-  , Sdvl_{ parameters.S_dvl }
+  , Sdvl_{ eulerToRotationMatrix(parameters.Sr_to_ned_dvl + parameters.Sr_dvl_alignment) }
   , Sinc_{ parameters.S_inc }
   , Sa_{ eulerToRotationMatrix(parameters.Sr_to_ned_accelerometer + parameters.Sr_accelerometer_aligment)} //+ eulerToRotationMatrix(parameters.Sr_accelerometer_aligment)}
   , Sg_{ eulerToRotationMatrix(parameters.Sr_to_ned_gyro + parameters.Sr_gyro_aligment)} //+ eulerToRotationMatrix(parameters.Sr_gyro_aligment)}
@@ -64,11 +64,13 @@ ESKF::ESKF(const parametersInESKF& parameters)
   std::cout << "R_gyro: " << parameters.R_gyro << std::endl;
   std::cout << "R_gyroBias: " << parameters.R_gyroBias << std::endl;
   std::cout << "R_accBias: " << parameters.R_accBias << std::endl;
-  std::cout << "S_DVL: " << parameters.S_dvl << std::endl;
+  std::cout << "S_DVL: " << Sdvl_ << std::endl;
   std::cout << "Sr_to_ned_accelerometer: " << parameters.Sr_to_ned_accelerometer << std::endl;
   std::cout << "Sr_to_ned_gyro: " << parameters.Sr_to_ned_gyro << std::endl;
+  std::cout << "Sr_to_ned_DVL: " <<parameters.Sr_to_ned_dvl << std::endl;
   std::cout << "Sr_accelerometer_alignment: "<<parameters.Sr_accelerometer_aligment << std::endl;
-  std::cout << "Sr_gyro_alignment: "<<parameters.Sr_gyro_aligment << std::endl; 
+  std::cout << "Sr_gyro_alignment: "<<parameters.Sr_gyro_aligment << std::endl;
+  std::cout << "Sr_dvl_alignment: " <<parameters.Sr_dvl_alignment << std::endl;
   std::cout << "S_a: "<<Sa_<<std::endl;
   std::cout << "Sr_to_ned_accelerometer + Sr_accelerometer_alignment: " << parameters.Sr_to_ned_accelerometer + parameters.Sr_accelerometer_aligment<< std::endl;
 

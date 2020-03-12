@@ -48,9 +48,14 @@ R_dvl: [1.0e-10, 0.0, 0.0,
          0.0, 1.0e-10, 0.0,
          0.0, 0.0, 1.0e-10 ] 
 
-St_dvl: [1.0, 0.0, 0.0,
-        0.0, 1.0, 0.0,
-        0.0, 0.0, 1.0 ]  # using NED
+sr_dvl_to_NED: [0.0,0.0,0.0]
+
+sr_dvl_alignment: [0.0,0.0,0.0]
+
+
+#St_dvl: [1.0, 0.0, 0.0,
+#        0.0, 1.0, 0.0,
+#        0.0, 0.0, 1.0 ]  # using NED
 
 pressureZ_topic: "/manta/pressureZ"
 

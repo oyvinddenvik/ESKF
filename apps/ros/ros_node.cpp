@@ -18,38 +18,6 @@ const Matrix3d returnStaticRotationFromIMUtoBodyFrame(const Vector3d& roll_pitch
 }
 */
 
-double meanOfVector(const std::vector<double>& vec)
-{
-  double sum = 0;
-
-  for (auto& each : vec)
-    sum += each;
-
-  return sum / vec.size();
-}
-
-double maxOfVector(const std::vector<double>& vec)
-{
-  double max = *std::max_element(vec.begin(), vec.end());
-
-  return max;
-}
-
-double stanardDeviationOfVector(const std::vector<double>& vec)
-{
-  double square_sum_of_difference = 0;
-  double mean_var = meanOfVector(vec);
-  auto len = vec.size();
-
-  double tmp;
-  for (auto& each : vec)
-  {
-    tmp = each - mean_var;
-    square_sum_of_difference += tmp * tmp;
-  }
-
-  return std::sqrt(square_sum_of_difference / (len - 1));
-}
 
 void setIMUTopicNameFromYaml(std::string& imu_topic_name)
 {
@@ -393,8 +361,10 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
   parameters.Sr_to_ned_gyro.setZero();
   parameters.Sr_accelerometer_aligment.setZero();
   parameters.Sr_gyro_aligment.setZero();
-  parameters.S_dvl.setZero();
+  parameters.Sr_to_ned_dvl.setZero();
+  parameters.Sr_dvl_alignment.setZero();
   parameters.S_inc.setZero();
+  parameters.S_dvl.setZero();
   parameters.paccBias = 0;
   parameters.pgyroBias = 0;
   parameters.use_ENU = false;
@@ -417,6 +387,8 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
   XmlRpc::XmlRpcValue St_to_ned_gyro_Config;
   XmlRpc::XmlRpcValue St_accelerometer_alignment_Config;
   XmlRpc::XmlRpcValue St_gyro_alignment_Config;
+  XmlRpc::XmlRpcValue St_to_ned_DVL_Config;
+  XmlRpc::XmlRpcValue St_dvl_alignment_Config;
   XmlRpc::XmlRpcValue S_gConfig;
   XmlRpc::XmlRpcValue S_dvlConfig;
   XmlRpc::XmlRpcValue S_incConfig;
@@ -589,6 +561,47 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
     ROS_FATAL("No static transform for gyro (St_gyro) set in parameter file");
     ROS_BREAK();
   }
+
+   if (ros::param::has("/sr_dvl_alignment"))
+  {
+    ros::param::get("/sr_dvl_alignment", St_dvl_alignment_Config);
+    int matrix_size = parameters.Sr_dvl_alignment.rows();
+
+    for (int i = 0; i < matrix_size; i++)
+    {
+      std::ostringstream ostr;
+      ostr << St_dvl_alignment_Config[i];
+      std::istringstream istr(ostr.str());
+      istr >> parameters.Sr_dvl_alignment(i);
+    }
+  }
+  else
+  {
+    ROS_FATAL("No static rotation for alignment of Dvl set in parameter file");
+    ROS_BREAK();
+  }
+
+   if (ros::param::has("/sr_dvl_to_NED"))
+  {
+    ros::param::get("/sr_dvl_to_NED", St_to_ned_DVL_Config);
+    int matrix_size = parameters.Sr_to_ned_dvl.rows();
+
+    for (int i = 0; i < matrix_size; i++)
+    {
+      std::ostringstream ostr;
+      ostr << St_to_ned_DVL_Config[i];
+      std::istringstream istr(ostr.str());
+      istr >> parameters.Sr_to_ned_dvl(i);
+    }
+  }
+  else
+  {
+    ROS_FATAL("No static rotation for DVL (sr_dvl_to_NED) set in parameter file");
+    ROS_BREAK();
+  }
+
+
+
 
   if (ros::param::has("/St_dvl"))
   {

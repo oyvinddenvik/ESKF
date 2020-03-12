@@ -112,8 +112,8 @@ struct parametersInESKF
   Eigen::Vector3d Sr_to_ned_gyro;
   Eigen::Vector3d Sr_accelerometer_aligment;
   Eigen::Vector3d Sr_gyro_aligment;
+  Eigen::Vector3d Sr_to_ned_dvl;
   Eigen::Vector3d Sr_dvl_alignment;
-  Eigen::Vector3d Sr_pressureZ_alignment;
   // Eigen::Matrix<double,3,3> S_a;
   // Eigen::Matrix<double,3,3> S_g;
   Eigen::Matrix<double, 3, 3> S_dvl;
