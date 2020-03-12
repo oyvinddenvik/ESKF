@@ -7,115 +7,6 @@
 using namespace eskf;
 using namespace Eigen;
 
-/*
-const Matrix3d returnStaticRotationFromIMUtoBodyFrame(const Vector3d& roll_pitch_yaw_NED_and_alignment_corrected)
-{
-    Matrix3d static_S_a = Matrix3d::Zero();
-
-    static_S_a = eulerToRotationMatrix(roll_pitch_yaw_NED_and_alignment_corrected);
-
-    return static_S_a;
-}
-*/
-
-
-void setIMUTopicNameFromYaml(std::string& imu_topic_name)
-{
-  if (ros::param::has("/imu_topic"))
-  {
-    ros::param::get("/imu_topic", imu_topic_name);
-  }
-  else
-  {
-    ROS_WARN("No IMU topic set in yaml file");
-  }
-}
-
-void setDVLTopicNameFromYawl(std::string& dvl_topic_name)
-{
-  if (ros::param::has("/dvl_topic"))
-  {
-    ros::param::get("/dvl_topic", dvl_topic_name);
-  }
-  else
-  {
-    ROS_WARN("No DVL topic set in yaml file");
-  }
-}
-
-void setPressureZTopicNameFromYaml(std::string& pressure_Z_topic_name)
-{
-  if (ros::param::has("/pressureZ_topic"))
-  {
-    ros::param::get("/pressureZ_topic", pressure_Z_topic_name);
-  }
-  else
-  {
-    ROS_WARN("No PressureZ topic set in yaml file");
-  }
-}
-
-void setPublishrateFromYaml(int& publish_rate)
-{
-  if (ros::param::has("/publish_rate"))
-  {
-    ros::param::get("/publish_rate", publish_rate);
-  }
-  else
-  {
-    ROS_WARN("No publish rate set, using default: %i ", publish_rate);
-  }
-}
-
-void setRdvlFromYamlFile(Matrix3d& R_dvl)
-{
-  XmlRpc::XmlRpcValue R_dvlConfig;
-  if (ros::param::has("/R_dvl"))
-  {
-    ros::param::get("/R_dvl", R_dvlConfig);
-    int matrix_size = R_dvl.rows();
-
-    for (int i = 0; i < matrix_size; i++)
-    {
-      for (int j = 0; j < matrix_size; j++)
-      {
-        std::ostringstream ostr;
-        ostr << R_dvlConfig[matrix_size * i + j];
-        std::istringstream istr(ostr.str());
-        istr >> R_dvl(i, j);
-      }
-    }
-  }
-  else
-  {
-    ROS_FATAL("No measurement covariance for DVL (R_dvl) set in parameter file");
-    ROS_BREAK();
-  }
-}
-
-void setRpressureZFromYamlFile(Matrix<double, 1, 1>& R_pressureZ)
-{
-  XmlRpc::XmlRpcValue R_pressureZConfig;
-
-  if (ros::param::has("/R_pressureZ"))
-  {
-    ros::param::get("/R_pressureZ", R_pressureZConfig);
-    int matrix_size = R_pressureZ.rows();
-
-    for (int i = 0; i < matrix_size; i++)
-    {
-      std::ostringstream ostr;
-      ostr << R_pressureZConfig[i];
-      std::istringstream istr(ostr.str());
-      istr >> R_pressureZ(i);
-    }
-  }
-  else
-  {
-    ROS_FATAL("No measurement covariance for pressure sensor (R_pressureZ) set in parameter file!");
-    ROS_BREAK();
-  }
-}
 
 ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh)
   : nh_{ pnh }
@@ -760,6 +651,104 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
   }
 
   return parameters;
+}
+
+void setIMUTopicNameFromYaml(std::string& imu_topic_name)
+{
+  if (ros::param::has("/imu_topic"))
+  {
+    ros::param::get("/imu_topic", imu_topic_name);
+  }
+  else
+  {
+    ROS_WARN("No IMU topic set in yaml file");
+  }
+}
+
+void setDVLTopicNameFromYawl(std::string& dvl_topic_name)
+{
+  if (ros::param::has("/dvl_topic"))
+  {
+    ros::param::get("/dvl_topic", dvl_topic_name);
+  }
+  else
+  {
+    ROS_WARN("No DVL topic set in yaml file");
+  }
+}
+
+void setPressureZTopicNameFromYaml(std::string& pressure_Z_topic_name)
+{
+  if (ros::param::has("/pressureZ_topic"))
+  {
+    ros::param::get("/pressureZ_topic", pressure_Z_topic_name);
+  }
+  else
+  {
+    ROS_WARN("No PressureZ topic set in yaml file");
+  }
+}
+
+void setPublishrateFromYaml(int& publish_rate)
+{
+  if (ros::param::has("/publish_rate"))
+  {
+    ros::param::get("/publish_rate", publish_rate);
+  }
+  else
+  {
+    ROS_WARN("No publish rate set, using default: %i ", publish_rate);
+  }
+}
+
+void setRdvlFromYamlFile(Matrix3d& R_dvl)
+{
+  XmlRpc::XmlRpcValue R_dvlConfig;
+  if (ros::param::has("/R_dvl"))
+  {
+    ros::param::get("/R_dvl", R_dvlConfig);
+    int matrix_size = R_dvl.rows();
+
+    for (int i = 0; i < matrix_size; i++)
+    {
+      for (int j = 0; j < matrix_size; j++)
+      {
+        std::ostringstream ostr;
+        ostr << R_dvlConfig[matrix_size * i + j];
+        std::istringstream istr(ostr.str());
+        istr >> R_dvl(i, j);
+      }
+    }
+  }
+  else
+  {
+    ROS_FATAL("No measurement covariance for DVL (R_dvl) set in parameter file");
+    ROS_BREAK();
+  }
+}
+
+void setRpressureZFromYamlFile(Matrix<double, 1, 1>& R_pressureZ)
+{
+  XmlRpc::XmlRpcValue R_pressureZConfig;
+
+  if (ros::param::has("/R_pressureZ"))
+  {
+    ros::param::get("/R_pressureZ", R_pressureZConfig);
+    int matrix_size = R_pressureZ.rows();
+
+    for (int i = 0; i < matrix_size; i++)
+    {
+      std::ostringstream ostr;
+      ostr << R_pressureZConfig[i];
+      std::istringstream istr(ostr.str());
+      istr >> R_pressureZ(i);
+    }
+  }
+  else
+  {
+    ROS_FATAL("No measurement covariance for pressure sensor (R_pressureZ) set in parameter file!");
+    ROS_BREAK();
+  }
 }
 
 

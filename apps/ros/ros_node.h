@@ -75,3 +75,10 @@ private:
 double meanOfVector(const std::vector<double>& vec);
 double maxOfVector(const std::vector<double>& vec);
 double stanardDeviationOfVector(const std::vector<double>& vec);
+void setIMUTopicNameFromYaml(std::string& imu_topic_name);
+void setDVLTopicNameFromYawl(std::string& dvl_topic_name);
+void setPressureZTopicNameFromYaml(std::string& pressure_Z_topic_name);
+void setPublishrateFromYaml(int& publish_rate);
+void setRdvlFromYamlFile(Eigen::Matrix3d& R_dvl);
+void setRpressureZFromYamlFile(Eigen::Matrix<double, 1, 1>& R_pressureZ);
+
