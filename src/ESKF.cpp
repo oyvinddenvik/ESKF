@@ -334,10 +334,12 @@ void ESKF::bufferDVLMessages(const Vector3d& zDvlMeasurements,const double timeS
 
   dvl_msg_buffer_.push_back(dvlmsg);
 
+  /*
   if(dvl_msg_buffer_.size() == 2)
   {
     emptyDVLBuffer();
   }
+  */
 }
 
 void ESKF::bufferPressureZMessages(const double& pressureZ,const double& timeStamp, Matrix<double,1,1> R_pressureZ)
@@ -346,10 +348,12 @@ void ESKF::bufferPressureZMessages(const double& pressureZ,const double& timeSta
 
   pressureZ_msg_buffer_.push_back(prsmsg);
 
+  /*
   if(pressureZ_msg_buffer_.size() == 2)
   {
     emptyPressureZBuffer();
   }
+  */
 }
 
 
@@ -367,29 +371,40 @@ void ESKF::update()
     //predict();
     if(dvl_msg_buffer_.size() != 0 && pressureZ_msg_buffer_.size() != 0)
     {
-      if(imu_msg_buffer_.back().timeStamp_ >= dvl_msg_buffer_.back().timeStamp_)
+      if(dvl_msg_buffer_.size() == 1 && dvl_msg_buffer_.back().timeStamp_ < pressureZ_msg_buffer_.back().timeStamp_)
       {
+        if(imu_msg_buffer_.back().timeStamp_<= dvl_msg_buffer_.back().timeStamp_)
+        {
+          predict();
+        }
         updateDVL();
-        std::cout<<"DVL Updated"<<std::endl;
+        //std::cout<<"DVL Updated"<<std::endl;
+        emptyDVLBuffer();
+        if(pressureZ_msg_buffer_.size() == 1)
+        {
+          updatePressureZ();
+          //std::cout<<"PressureZ Updated"<<std::endl;
+          emptyPressureZBuffer();
+        }
+        
       }
-      else
-      {
-        predict();
-      }
-      
-      if(imu_msg_buffer_.back().timeStamp_>= pressureZ_msg_buffer_.back().timeStamp_)
+      if(pressureZ_msg_buffer_.size() == 1 && pressureZ_msg_buffer_.back().timeStamp_ < dvl_msg_buffer_.back().timeStamp_)
       {
         updatePressureZ();
-        std::cout<<"PressureZ Updated"<<std::endl;
-      }
-      else
-      {
-        predict();
+        //std::cout<<"PressureZ Updated"<<std::endl;
+        emptyPressureZBuffer();
+        if(dvl_msg_buffer_.size() == 1)
+        {
+          updateDVL();
+          //std::cout<<"DVL Updated"<<std::endl;
+          emptyDVLBuffer();
+        }
       }
       
     }
     else
     {
+      //std::cout<<"predicted"<<std::endl;
       predict();
     }
   }
@@ -436,12 +451,16 @@ void ESKF::emptyIMUBuffer()
 
 void ESKF::emptyDVLBuffer()
 {
-  dvl_msg_buffer_ = std::vector<DVLmessage>{dvl_msg_buffer_.back()};
+  dvl_msg_buffer_ = std::vector<DVLmessage>{};
+
+  //dvl_msg_buffer_.back()
 }
 
 void ESKF::emptyPressureZBuffer()
 {
-  pressureZ_msg_buffer_ = std::vector<PressureZmessage>{pressureZ_msg_buffer_.back()};
+  pressureZ_msg_buffer_ = std::vector<PressureZmessage>{};
+
+  //pressureZ_msg_buffer_.back()
 }
 
 

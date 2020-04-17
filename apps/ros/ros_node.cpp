@@ -110,7 +110,7 @@ void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
 
     const double ros_timeStampNow = imu_Message_data->header.stamp.toSec() - initialIMUTimestamp_; 
 
-    ROS_INFO("IMU_timeStamp: %f",ros_timeStampNow);
+    //ROS_INFO("IMU_timeStamp: %f",ros_timeStampNow);
 
     
 
@@ -167,7 +167,7 @@ void ESKF_Node::dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data
   // TODO: Add nanoseconds instead of sec for higher precision?
   const double ros_timeStampNow = dvl_Message_data->header.stamp.toSec() - initialIMUTimestamp_; 
 
-  ROS_INFO("DVL_timeStamp: %f",ros_timeStampNow);
+  //ROS_INFO("DVL_timeStamp: %f",ros_timeStampNow);
 
   
 
@@ -186,9 +186,9 @@ void ESKF_Node::pressureZCallback(const nav_msgs::Odometry::ConstPtr& pressureZ_
 
   // std::cout<<RpressureZ<<std::endl;
   // const double R_pressureZ = 2.2500;
-  const double ros_timeStampNow = pressureZ_Message_data->header.stamp.toNSec(); 
+  const double ros_timeStampNow = pressureZ_Message_data->header.stamp.toSec() - initialIMUTimestamp_; 
 
-  ROS_INFO("PressureZ_timeStamp: %f",ros_timeStampNow);
+  //ROS_INFO("PressureZ_timeStamp: %f",ros_timeStampNow);
 
   eskf_.bufferPressureZMessages(raw_pressure_z,ros_timeStampNow,R_pressureZ_);
   //eskf_.updatePressureZ(raw_pressure_z, R_pressureZ_);
