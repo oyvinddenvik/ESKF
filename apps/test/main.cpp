@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
   auto start = std::chrono::steady_clock::now();
   for (int i = 0; i < 10000; ++i)
   {
-    eskf.predict(accRectifiedMeasurements, gyroRectifiedMeasurements, Ts, Racc, Rgyro);
+    //eskf.predict(accRectifiedMeasurements, gyroRectifiedMeasurements, Ts, Racc, Rgyro);
   }
   auto end = std::chrono::steady_clock::now();
   auto diff = end - start;
@@ -130,3 +130,4 @@ int main(int argc, char *argv[])
   
   return 0;
 }
+

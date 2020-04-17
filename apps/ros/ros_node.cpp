@@ -32,6 +32,11 @@ ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh)
   setPressureZTopicNameFromYaml(pressureZ_topic);
   setPublishrateFromYaml(publish_rate);
 
+  // TODO: Make these functions
+  //setIMUBufferSize(IMUbufferSize_);
+  //setDVLBufferSize(DVLbufferSize_);
+  //setPressureZBufferSize(PressureZbufferSize_);
+
   ROS_INFO("Subscribing to IMU topic: %s", imu_topic.c_str());
   // Subscribe to IMU
   subscribeIMU_ = nh_.subscribe<sensor_msgs::Imu>(imu_topic, 1000, &ESKF_Node::imuCallback, this,
@@ -64,7 +69,8 @@ void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
   Matrix3d R_acc = Matrix3d::Zero();
   Matrix3d R_gyro = Matrix3d::Zero();
 
-  Ts = (1.0 / imu_publish_rate);
+  //Ts = (1.0 / imu_publish_rate);
+
   raw_acceleration_measurements << imu_Message_data->linear_acceleration.x, imu_Message_data->linear_acceleration.y,
     imu_Message_data->linear_acceleration.z;
 
@@ -89,9 +95,31 @@ void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
 
   // ROS_INFO("Acceleration_x: %f",imu_Message_data->linear_acceleration.x);
 
-  
+  if (previousTimeStampIMU_.sec != 0)
+  {
+    const double deltaIMU = (imu_Message_data->header.stamp - previousTimeStampIMU_).toSec();
 
-  eskf_.predict(raw_acceleration_measurements, raw_gyro_measurements, Ts, R_acc, R_gyro);
+    //ROS_INFO("TimeStamps: %f",delta);
+
+    if(init_ == false)
+    {
+      initialIMUTimestamp_ = imu_Message_data->header.stamp.toSec();
+      init_ = true;
+      ROS_INFO("ESKF initilized");
+    }
+
+    const double ros_timeStampNow = imu_Message_data->header.stamp.toSec() - initialIMUTimestamp_; 
+
+    ROS_INFO("IMU_timeStamp: %f",ros_timeStampNow);
+
+    
+
+    eskf_.bufferIMUMessages(raw_acceleration_measurements,raw_gyro_measurements,ros_timeStampNow,deltaIMU,R_acc,R_gyro);
+    //eskf_.predict();
+  }
+
+  previousTimeStampIMU_ = imu_Message_data->header.stamp;
+  
 
 
   // Execution time
@@ -125,6 +153,8 @@ void ESKF_Node::dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data
 
   raw_dvl_measurements << dvl_Message_data->twist.twist.linear.x, dvl_Message_data->twist.twist.linear.y,
     dvl_Message_data->twist.twist.linear.z;
+  
+
 
   for (size_t i = 0; i < R_dvl.rows(); i++)
   {
@@ -134,8 +164,16 @@ void ESKF_Node::dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data
     }
   }
 
+  // TODO: Add nanoseconds instead of sec for higher precision?
+  const double ros_timeStampNow = dvl_Message_data->header.stamp.toSec() - initialIMUTimestamp_; 
+
+  ROS_INFO("DVL_timeStamp: %f",ros_timeStampNow);
+
+  
+
   // ROS_INFO("Velocity_z: %f",dvl_Message_data->twist.twist.linear.z);
-  eskf_.updateDVL(raw_dvl_measurements, R_dvl_);
+  eskf_.bufferDVLMessages(raw_dvl_measurements,ros_timeStampNow,R_dvl_);
+  //eskf_.updateDVL(raw_dvl_measurements, R_dvl_);
 }
 
 // PressureZ subscriber
@@ -148,12 +186,19 @@ void ESKF_Node::pressureZCallback(const nav_msgs::Odometry::ConstPtr& pressureZ_
 
   // std::cout<<RpressureZ<<std::endl;
   // const double R_pressureZ = 2.2500;
+  const double ros_timeStampNow = pressureZ_Message_data->header.stamp.toNSec(); 
 
-  eskf_.updatePressureZ(raw_pressure_z, R_pressureZ_);
+  ROS_INFO("PressureZ_timeStamp: %f",ros_timeStampNow);
+
+  eskf_.bufferPressureZMessages(raw_pressure_z,ros_timeStampNow,R_pressureZ_);
+  //eskf_.updatePressureZ(raw_pressure_z, R_pressureZ_);
 }
 
 void ESKF_Node::publishPoseState(const ros::TimerEvent&)
 {
+  eskf_.update();
+
+
   nav_msgs::Odometry odom_msg;
   static size_t trace_id{ 0 };
 
@@ -493,7 +538,7 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
 
 
 
-
+  /*
   if (ros::param::has("/St_dvl"))
   {
     ros::param::get("/St_dvl", S_dvlConfig);
@@ -515,6 +560,7 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
     ROS_FATAL("No static transform for DVL (St_dvl) set in parameter file");
     ROS_BREAK();
   }
+  */
 
   if (ros::param::has("/St_inc"))
   {

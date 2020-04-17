@@ -8,6 +8,7 @@ ESKF::ESKF(Matrix3d Racc, Matrix3d RaccBias, Matrix3d Rgyro, Matrix3d RgyroBias,
            Matrix3d Sa, Matrix3d Sg, Matrix3d Sdvl, Matrix3d Sinc)
   : pgyroBias_{ pgyroBias }
   , paccBias_{ paccBias }
+  , updated_{0}
   , Racc_{ std::move(Racc) }
   , RaccBias_{ std::move(RaccBias) }
   , Rgyro_{ std::move(Rgyro) }
@@ -56,6 +57,7 @@ ESKF::ESKF(const parametersInESKF& parameters)
   , Sg_{ eulerToRotationMatrix(parameters.Sr_to_ned_gyro + parameters.Sr_gyro_aligment)} //+ eulerToRotationMatrix(parameters.Sr_gyro_aligment)}
   , pgyroBias_{ parameters.pgyroBias }
   , paccBias_{ parameters.paccBias }
+  , updated_{0}
   , use_ENU_{ parameters.use_ENU }
   , D_{ blk3x3Diag(Racc_, Rgyro_, RaccBias_, RgyroBias_) }
   , optimizationParameters_{ parameters.initial_pose, parameters.initial_covariance }
@@ -314,23 +316,167 @@ MatrixXd ESKF::predictCovariance(const VectorXd& xnominal, const MatrixXd& P, co
   return Pprediction;
 }
 
-void ESKF::predict(const Vector3d& zAccMeasurements, const Vector3d& zGyroMeasurements, const double& Ts,
-                   const Matrix3d& Racc, const Matrix3d& Rgyro)
+void ESKF::bufferIMUMessages(const Vector3d& zAccMeasurements, const Vector3d& zGyroMeasurements, const double& timeStamp, const double& deltaIMU,const Matrix3d& Racc, const Matrix3d& Rgyro)
 {
+  IMUmessage imu_msg{timeStamp,deltaIMU,zAccMeasurements,zGyroMeasurements,Racc,Rgyro};
+
+  imu_msg_buffer_.push_back(imu_msg);
+
+  if(imu_msg_buffer_.size() == 20)
+  {
+    emptyIMUBuffer();
+  }
+}
+
+void ESKF::bufferDVLMessages(const Vector3d& zDvlMeasurements,const double timeStamp,const Matrix3d& Rdvl)
+{
+  DVLmessage dvlmsg{timeStamp,zDvlMeasurements,Rdvl};
+
+  dvl_msg_buffer_.push_back(dvlmsg);
+
+  if(dvl_msg_buffer_.size() == 2)
+  {
+    emptyDVLBuffer();
+  }
+}
+
+void ESKF::bufferPressureZMessages(const double& pressureZ,const double& timeStamp, Matrix<double,1,1> R_pressureZ)
+{
+  PressureZmessage prsmsg{timeStamp,pressureZ,R_pressureZ};
+
+  pressureZ_msg_buffer_.push_back(prsmsg);
+
+  if(pressureZ_msg_buffer_.size() == 2)
+  {
+    emptyPressureZBuffer();
+  }
+}
+
+
+void ESKF::update()
+{
+
+  //std::cout<<"Imu_buffer_size: "<<imu_msg_buffer_.size()<<std::endl;
+  //std::cout<<"dvl_buffer_size: "<<dvl_msg_buffer_.size()<<std::endl;
+  //std::cout<<"pressureZ_buffer_size: "<<pressureZ_msg_buffer_.size()<<std::endl;
+
   
+  if(imu_msg_buffer_.size() != 0)
+  {
+    //std::cout<<imu_msg_buffer_.back().timeStamp_<<std::endl;
+    //predict();
+    if(dvl_msg_buffer_.size() != 0 && pressureZ_msg_buffer_.size() != 0)
+    {
+      if(imu_msg_buffer_.back().timeStamp_ >= dvl_msg_buffer_.back().timeStamp_)
+      {
+        updateDVL();
+        std::cout<<"DVL Updated"<<std::endl;
+      }
+      else
+      {
+        predict();
+      }
+      
+      if(imu_msg_buffer_.back().timeStamp_>= pressureZ_msg_buffer_.back().timeStamp_)
+      {
+        updatePressureZ();
+        std::cout<<"PressureZ Updated"<<std::endl;
+      }
+      else
+      {
+        predict();
+      }
+      
+    }
+    else
+    {
+      predict();
+    }
+  }
+ 
+
+    
+    /*
+    if(imu_msg_buffer_.back().timeStamp_ >= dvl_msg_buffer_.back().timeStamp_ && dvl_msg_buffer_.size() != 0)
+    {
+      std::cout<<"hei"<<std::endl;
+      updateDVL();
+    }
+    */
+    /*
+    else if(imu_msg_buffer_.back().timeStamp_ >= pressureZ_msg_buffer_.back().timeStamp_ && dvl_msg_buffer_.size() != 0)
+    {
+      updatePressureZ();
+    }
+    else
+    {
+      predict();
+    }
+    */
+
+  return;
+ 
+}
+
+
+
+/*
+void ESKF::emptyBuffers()
+{
+  imu_msg_buffer_ = std::vector<IMUmessage>{imu_msg_buffer_.back()};
+  dvl_msg_buffer_ = std::vector<DVLmessage>{dvl_msg_buffer_.back()};
+  pressureZ_msg_buffer_ = std::vector<PressureZmessage>{pressureZ_msg_buffer_.back()};
+}
+*/
+
+void ESKF::emptyIMUBuffer()
+{
+  imu_msg_buffer_ = std::vector<IMUmessage>{imu_msg_buffer_.back()};
+}
+
+void ESKF::emptyDVLBuffer()
+{
+  dvl_msg_buffer_ = std::vector<DVLmessage>{dvl_msg_buffer_.back()};
+}
+
+void ESKF::emptyPressureZBuffer()
+{
+  pressureZ_msg_buffer_ = std::vector<PressureZmessage>{pressureZ_msg_buffer_.back()};
+}
+
+
+
+void ESKF::predict()
+{
+  //std::cout<<"Counter: "<<DEBUG_COUNTER<<std::endl;
+  //std::cout<<"buffer_size: "<<imu_msg_buffer_.size()<<std::endl;
+
+
+  Vector3d gyroMessage{imu_msg_buffer_.back().zGyroMeasurement_};
+  Vector3d accMessage{imu_msg_buffer_.back().zAccMeasurement_};
+  Matrix<double,3,3> Racc{imu_msg_buffer_.back().R_acc_};
+  Matrix<double,3,3> Rgyro{imu_msg_buffer_.back().R_gyro_};
+  
+  const double Ts{imu_msg_buffer_.back().deltaIMU_};
+
 
   Vector3d accBias = Sa_ * optimizationParameters_.X.block<NOMINAL_ACC_BIAS_SIZE, 1>(NOMINAL_ACC_BIAS_STATE_OFFSET, 0);
   Vector3d gyroBias =
     Sg_ * optimizationParameters_.X.block<NOMINAL_GYRO_BIAS_SIZE, 1>(NOMINAL_GYRO_BIAS_STATE_OFFSET, 0);
 
-  Vector3d accelerationRectified = Sa_ * zAccMeasurements - accBias;
-  Vector3d gyroRectified = Sg_ * zGyroMeasurements - gyroBias;
+
+  Vector3d accelerationRectified = (Sa_ * accMessage) - accBias;
+  Vector3d gyroRectified = (Sg_ * gyroMessage) - gyroBias;
 
   optimizationParameters_.X = predictNominal(optimizationParameters_.X, accelerationRectified, gyroRectified, Ts);
   optimizationParameters_.P = predictCovariance(optimizationParameters_.X, optimizationParameters_.P,
                                                 accelerationRectified, gyroRectified, Ts, Racc, Rgyro);
 
-  
+  // Add state and covariance to buffer
+  const double time_Stamp{imu_msg_buffer_.back().timeStamp_};
+  StateAndCovariance_msg state_and_covariance_msg{optimizationParameters_.X,optimizationParameters_.P,time_Stamp};
+  nominal_covariance_buffer_.push_back(state_and_covariance_msg);
+  //DEBUG_COUNTER++;
                                               
 }
 
@@ -392,10 +538,13 @@ InnovationParameters ESKF::innovationPressureZ(const VectorXd& xnominal, const M
   return pressureStates;
 }
 
-void ESKF::updatePressureZ(const double& zPressureZpos, const MatrixXd& RpressureZ)
+void ESKF::updatePressureZ()
 {
+  const double prs_msg{pressureZ_msg_buffer_.back().pressureZ_msg_};
+  const Matrix<double,1,1> R_pressureZ{pressureZ_msg_buffer_.back().R_pressureZ_};
+
   InnovationParameters pressureStates =
-    innovationPressureZ(optimizationParameters_.X, optimizationParameters_.P, zPressureZpos, RpressureZ);
+    innovationPressureZ(optimizationParameters_.X, optimizationParameters_.P,prs_msg,R_pressureZ);
 
   // ESKF Update step
   MatrixXd kalmanGain = optimizationParameters_.P * pressureStates.jacobianOfErrorStates.transpose() *
@@ -441,10 +590,13 @@ InnovationParameters ESKF::innovationDVL(const VectorXd& xnominal, const MatrixX
   return dvlStates;
 }
 
-void ESKF::updateDVL(const Vector3d& zDVLvel, const Matrix3d& RDVL)
+void ESKF::updateDVL()
 {
+  const Vector3d dvl_msg{dvl_msg_buffer_.back().zDVl_};
+  const Matrix3d R_dvl{dvl_msg_buffer_.back().R_dvl_};
+
   InnovationParameters DVLstates{ 3 };
-  DVLstates = innovationDVL(optimizationParameters_.X, optimizationParameters_.P, zDVLvel, RDVL);
+  DVLstates = innovationDVL(optimizationParameters_.X, optimizationParameters_.P, dvl_msg, R_dvl);
 
   MatrixXd kalmanGain =
     optimizationParameters_.P * DVLstates.jacobianOfErrorStates.transpose() * DVLstates.measurementCovariance.inverse();

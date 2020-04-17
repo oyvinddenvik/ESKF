@@ -58,6 +58,14 @@ private:
   // ROS publisher
   ros::Publisher publishPose_;
 
+  // Timestamps
+
+  ros::Time previousTimeStampIMU_;
+  ros::Time previousTimeStampDVL_;
+  ros::Time previousTimeStampPressureZ_;
+  double initialIMUTimestamp_;
+  
+
   // Callbacks
   void imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data);
   void dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data);

@@ -4,6 +4,7 @@
 #include <Eigen/Dense>
 #include <cmath>
 #include <unsupported/Eigen/MatrixFunctions>
+#include <vector>
 
 
 
@@ -48,6 +49,10 @@ constexpr int NOMINAL_GYRO_BIAS_SIZE{ 3 };
 constexpr int NOMINAL_GRAVITY_SIZE{ 3 };
 constexpr double GRAVITY{ 9.80665 };
 constexpr int DEFAULT_IMU_RATE{ 125 };
+
+// ---------------- DEBUG: REMOVE WHEN FINISHED ------------
+int DEBUG_COUNTER{0};
+// ---------------------------------------------------------
 
 struct AdandGQGD
 {
@@ -123,6 +128,81 @@ struct parametersInESKF
   bool use_ENU;
 };
 
+struct StateAndCovariance_msg
+{
+  double timeStamp_;
+  Eigen::Matrix<double, NOMINAL_STATE_SIZE, 1> X_;
+  Eigen::Matrix<double, ERROR_STATE_SIZE, ERROR_STATE_SIZE> P_;
+  StateAndCovariance_msg()
+  :timeStamp_{0}
+  {
+    X_.setZero();
+    P_.setZero();
+  }
+  StateAndCovariance_msg(const Eigen::Matrix<double,NOMINAL_STATE_SIZE,1>& XState, const Eigen::Matrix<double,ERROR_STATE_SIZE,ERROR_STATE_SIZE>& PState,const double& timeStamp)
+  :X_{XState},P_{PState},timeStamp_{timeStamp}
+  {
+  }
+
+};
+
+struct IMUmessage 
+{
+  double timeStamp_;
+  double deltaIMU_;
+  Eigen::Vector3d zAccMeasurement_;
+  Eigen::Vector3d zGyroMeasurement_;
+  Eigen::Matrix<double,3,3> R_acc_;
+  Eigen::Matrix<double,3,3> R_gyro_;
+  IMUmessage()
+  :timeStamp_{0},deltaIMU_{0}
+  {
+    zAccMeasurement_.setZero();
+    zGyroMeasurement_.setZero();
+    R_acc_.setZero();
+    R_gyro_.setZero();
+  }
+  IMUmessage(const double& timeStamp,const double& deltaIMU, const Eigen::Vector3d& zAcc, const Eigen::Vector3d& zGyro, const Eigen::Matrix<double,3,3>& Racc, const Eigen::Matrix<double,3,3> Rgyro)
+  : timeStamp_{timeStamp},deltaIMU_{deltaIMU},zAccMeasurement_{zAcc},zGyroMeasurement_{zGyro},R_acc_{Racc},R_gyro_{Rgyro}
+  {
+  }
+
+};
+
+struct DVLmessage
+{
+  double timeStamp_;
+  Eigen::Vector3d zDVl_;
+  Eigen::Matrix<double,3,3> R_dvl_;
+  DVLmessage()
+  :timeStamp_{0}
+  {
+    zDVl_.setZero();
+    R_dvl_.setZero();
+  }
+  DVLmessage(const double& timeStamp, const Eigen::Vector3d zDvl, const Eigen::Matrix<double,3,3> R_dvl)
+  :timeStamp_{timeStamp},zDVl_{zDvl},R_dvl_{R_dvl}
+  {
+  }
+};
+
+struct PressureZmessage
+{
+  double timeStamp_;
+  double pressureZ_msg_;
+  Eigen::Matrix<double,1,1> R_pressureZ_;
+  PressureZmessage()
+  :timeStamp_{0}, pressureZ_msg_{0}
+  {
+    R_pressureZ_.setZero();
+  }
+  PressureZmessage(const double& timeStamp, const double& pressureZ_msg, Eigen::Matrix<double,1,1> R_pressureZ)
+  :timeStamp_{timeStamp},pressureZ_msg_{pressureZ_msg},R_pressureZ_{R_pressureZ}
+  {
+  }
+};
+
+
 class ESKF
 {
 public:
@@ -131,10 +211,15 @@ public:
   explicit ESKF(Eigen::Matrix3d Racc, Eigen::Matrix3d RaccBias, Eigen::Matrix3d Rgyro, Eigen::Matrix3d RgyroBias, double pgyroBias, double paccBias,
                 Eigen::Matrix3d Sa, Eigen::Matrix3d Sg, Eigen::Matrix3d Sdvl, Eigen::Matrix3d Sinc);
 
-  void predict(const Eigen::Vector3d& zAccMeasurements, const Eigen::Vector3d& zGyroMeasurements, const double& Ts,
-               const Eigen::Matrix3d& Racc, const Eigen::Matrix3d& Rgyro);
-  void updateDVL(const Eigen::Vector3d& zDVLvel, const Eigen::Matrix3d& RDVL);
-  void updatePressureZ(const double& zPressureZpos, const Eigen::MatrixXd& RpressureZ);
+  void predict();
+  void bufferIMUMessages(const Eigen::Vector3d& zAccMeasurements, const Eigen::Vector3d& zGyroMeasurements, const double& timeStamp,const double& deltaIMU, const Eigen::Matrix3d& Racc, const Eigen::Matrix3d& Rgyro);
+  void bufferDVLMessages(const Eigen::Vector3d& zDvlMeasurements,const double timeStamp,const Eigen::Matrix3d& Rdvl);
+  void bufferPressureZMessages(const double& pressureZ,const double& timeStamp, Eigen::Matrix<double,1,1> R_pressureZ);
+  void update();
+  //void updateDVL(const Eigen::Vector3d& zDVLvel, const Eigen::Matrix3d& RDVL);
+  //void updatePressureZ(const double& zPressureZpos, const Eigen::MatrixXd& RpressureZ);
+  void updateDVL();
+  void updatePressureZ();
 
   // void setParametersInESKF(const parametersInESKF& parameters);
   inline Eigen::Quaterniond getQuaternion() const
@@ -275,5 +360,18 @@ private:
   // Execution time
   // std::vector<double> execution_time_vector_;
   bool publish_execution_time_{ false };
+
+  // Buffer implementation
+
+  std::vector<IMUmessage> imu_msg_buffer_;
+  std::vector<DVLmessage> dvl_msg_buffer_;
+  std::vector<PressureZmessage> pressureZ_msg_buffer_;
+  std::vector<StateAndCovariance_msg> nominal_covariance_buffer_;
+  //void emptyBuffers();
+  void emptyIMUBuffer();
+  void emptyDVLBuffer();
+  void emptyPressureZBuffer();
+  bool updated_;
+  
 };
 }  // namespace eskf
