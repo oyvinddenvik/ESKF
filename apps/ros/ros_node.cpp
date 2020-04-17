@@ -57,14 +57,14 @@ void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
 
   auto start = std::chrono::steady_clock::now();
 
-  double Ts{ 0 };
+  //double Ts{ 0 };
   int imu_publish_rate{ DEFAULT_IMU_RATE };
   Vector3d raw_acceleration_measurements = Vector3d::Zero();
   Vector3d raw_gyro_measurements = Vector3d::Zero();
   Matrix3d R_acc = Matrix3d::Zero();
   Matrix3d R_gyro = Matrix3d::Zero();
 
-  Ts = (1.0 / imu_publish_rate);
+  //Ts = (1.0 / imu_publish_rate);
   raw_acceleration_measurements << imu_Message_data->linear_acceleration.x, imu_Message_data->linear_acceleration.y,
     imu_Message_data->linear_acceleration.z;
 
@@ -89,9 +89,33 @@ void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
 
   // ROS_INFO("Acceleration_x: %f",imu_Message_data->linear_acceleration.x);
 
-  
+  if (previousTimeStampIMU_.sec != 0)
+  {
+    const double deltaIMU = (imu_Message_data->header.stamp - previousTimeStampIMU_).toSec();
 
-  eskf_.predict(raw_acceleration_measurements, raw_gyro_measurements, Ts, R_acc, R_gyro);
+    //ROS_INFO("TimeStamps: %f",delta);
+
+    if(init_ == false)
+    {
+      initialIMUTimestamp_ = imu_Message_data->header.stamp.toSec();
+      init_ = true;
+      ROS_INFO("ESKF initilized");
+    }
+
+    const double ros_timeStampNow = imu_Message_data->header.stamp.toSec() - initialIMUTimestamp_; 
+
+    //ROS_INFO("IMU_timeStamp: %f",ros_timeStampNow);
+
+    
+
+    eskf_.predict(raw_acceleration_measurements, raw_gyro_measurements, deltaIMU, R_acc, R_gyro);
+
+    //eskf_.predict();
+  }
+
+  previousTimeStampIMU_ = imu_Message_data->header.stamp;
+
+  
 
 
   // Execution time

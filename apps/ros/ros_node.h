@@ -55,6 +55,13 @@ private:
   ros::Subscriber subscribePressureZ_;
   ros::Timer pubTImer_;
 
+  // Timestamps
+
+  ros::Time previousTimeStampIMU_;
+  ros::Time previousTimeStampDVL_;
+  ros::Time previousTimeStampPressureZ_;
+  double initialIMUTimestamp_;
+
   // ROS publisher
   ros::Publisher publishPose_;
 
