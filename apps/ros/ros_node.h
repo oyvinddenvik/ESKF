@@ -7,6 +7,17 @@
 #include "sensor_msgs/Imu.h"
 #include "nav_msgs/Odometry.h"
 
+
+#include <message_filters/subscriber.h>
+//#include <message_filters/time_synchronizer.h>
+#include <message_filters/synchronizer.h>
+#include <message_filters/sync_policies/approximate_time.h>
+
+
+
+
+
+
 const Eigen::Matrix3d R_ACC((Eigen::Matrix3d() << 4, 0, 0, 0, 4, 0, 0, 0, 4).finished());
 const Eigen::Matrix3d R_ACCBIAS((Eigen::Matrix3d() << 6e-5, 0, 0, 0, 6e-5, 0, 0, 0, 6e-5).finished());
 const Eigen::Matrix3d R_GYRO((Eigen::Matrix3d() << 12e-3, 0, 0, 0, 12e-3, 0, 0, 0, 12e-3).finished());
@@ -34,6 +45,7 @@ class ESKF_Node
 public:
   ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh);
   //~ESKF_Node();
+  void IMUDVLPressureCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data, const nav_msgs::Odometry::ConstPtr& pressureZ_Message_data);
 
   // void getParametersFromYamlFile();
 
@@ -55,6 +67,17 @@ private:
   ros::Subscriber subscribePressureZ_;
   ros::Timer pubTImer_;
 
+  // ROS Time synchronization subscribers
+  message_filters::Subscriber<sensor_msgs::Imu> timeSyncSubscribeIMU_;
+  message_filters::Subscriber<nav_msgs::Odometry> timeSyncSubscribeDVL_;
+  message_filters::Subscriber<nav_msgs::Odometry> timeSyncSubscribePressureZ_;
+  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Imu,nav_msgs::Odometry> MySyncPolicy;
+  typedef message_filters::Synchronizer<MySyncPolicy> Sync;
+  boost::shared_ptr<Sync> sync_;
+
+
+
+
   // Timestamps
 
   ros::Time previousTimeStampIMU_;
@@ -70,6 +93,7 @@ private:
   void dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data);
   void publishPoseState(const ros::TimerEvent&);
   void pressureZCallback(const nav_msgs::Odometry::ConstPtr& pressureZ_Message_data);
+  
 
 
 

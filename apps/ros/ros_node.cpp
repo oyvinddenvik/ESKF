@@ -6,6 +6,7 @@
 
 using namespace eskf;
 using namespace Eigen;
+using namespace message_filters;
 
 
 ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh)
@@ -13,6 +14,7 @@ ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh)
   , init_{ false }
   , eskf_{ loadParametersFromYamlFile() }
   , publish_execution_time_{true}
+  //, IMUDVLPressureZSynchronizer{timeSyncSubscribeIMU_,timeSyncSubscribePressureZ_,20}
   //,eskf_{R_ACC,R_ACCBIAS,R_GYRO,R_GYROBIAS,P_GYRO_BIAS,P_ACC_BIAS,returnStaticRotationFromIMUtoBodyFrame(roll_pitch_yaw_NED_and_alignment_corrected),returnStaticRotationFromIMUtoBodyFrame(roll_pitch_yaw_NED_and_alignment_corrected),S_DVL,S_INC}
 {
   R_dvl_.setZero();
@@ -32,6 +34,7 @@ ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh)
   setPressureZTopicNameFromYaml(pressureZ_topic);
   setPublishrateFromYaml(publish_rate);
 
+  /*
   ROS_INFO("Subscribing to IMU topic: %s", imu_topic.c_str());
   // Subscribe to IMU
   subscribeIMU_ = nh_.subscribe<sensor_msgs::Imu>(imu_topic, 1000, &ESKF_Node::imuCallback, this,
@@ -44,12 +47,111 @@ ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh)
   ROS_INFO("Subscribing to pressure sensor: %s", pressureZ_topic.c_str());
   subscribePressureZ_ = nh_.subscribe<nav_msgs::Odometry>(pressureZ_topic, 1000, &ESKF_Node::pressureZCallback, this,
                                                           ros::TransportHints().tcpNoDelay(true));
-
+  */
+  
+  // Time Synchronization 
+  ROS_INFO("Subscribing to IMU topic: %s", imu_topic.c_str());
+  timeSyncSubscribeIMU_.subscribe(nh_,imu_topic,5,ros::TransportHints().tcpNoDelay(true));
+  ROS_INFO("Subscribing to pressure sensor: %s", pressureZ_topic.c_str());
+  timeSyncSubscribePressureZ_.subscribe(nh_,pressureZ_topic,5,ros::TransportHints().tcpNoDelay(true));
+  ROS_INFO("Subscribing to DVL: %s", dvl_topic.c_str());
+  timeSyncSubscribeDVL_.subscribe(nh_,dvl_topic,5,ros::TransportHints().tcpNoDelay(true));
+  sync_.reset(new Sync(MySyncPolicy(5),timeSyncSubscribeIMU_,timeSyncSubscribePressureZ_));
+  sync_->registerCallback(boost::bind(&ESKF_Node::IMUDVLPressureCallback,this,_1,_2));
+  
+  
+  
   ROS_INFO("Publishing State");
   publishPose_ = nh_.advertise<nav_msgs::Odometry>("pose", 1);
 
   pubTImer_ = nh_.createTimer(ros::Duration(1.0f / publish_rate), &ESKF_Node::publishPoseState, this);
 }
+
+void ESKF_Node::IMUDVLPressureCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data, const nav_msgs::Odometry::ConstPtr& pressureZ_Message_data)
+{
+  // Get data
+
+  Vector3d raw_acceleration_measurements = Vector3d::Zero();
+  Vector3d raw_gyro_measurements = Vector3d::Zero();
+  Matrix3d R_acc = Matrix3d::Zero();
+  Matrix3d R_gyro = Matrix3d::Zero();
+
+  //Ts = (1.0 / imu_publish_rate);
+  raw_acceleration_measurements << imu_Message_data->linear_acceleration.x, imu_Message_data->linear_acceleration.y,
+    imu_Message_data->linear_acceleration.z;
+
+  for (size_t i = 0; i < R_acc.rows(); i++)
+  {
+    for (size_t j = 0; j < R_acc.cols(); j++)
+    {
+      R_acc(i, j) = imu_Message_data->linear_acceleration_covariance[3 * i + j];
+    }
+  }
+
+  raw_gyro_measurements << imu_Message_data->angular_velocity.x, imu_Message_data->angular_velocity.y,
+    imu_Message_data->angular_velocity.z;
+
+  for (size_t i = 0; i < R_gyro.rows(); i++)
+  {
+    for (size_t j = 0; j < R_gyro.cols(); j++)
+    {
+      R_gyro(i, j) = imu_Message_data->angular_velocity_covariance[3 * i + j];
+    }
+  }
+
+  /*
+  Vector3d raw_dvl_measurements = Vector3d::Zero();
+  Matrix3d R_dvl = Matrix3d::Zero();
+
+  raw_dvl_measurements << dvl_Message_data->twist.twist.linear.x, dvl_Message_data->twist.twist.linear.y,
+    dvl_Message_data->twist.twist.linear.z;
+
+  for (size_t i = 0; i < R_dvl.rows(); i++)
+  {
+    for (size_t j = 0; j < R_dvl.cols(); j++)
+    {
+      R_dvl(i, j) = dvl_Message_data->twist.covariance[3 * i + j];
+    }
+  }
+
+  */
+
+  Matrix<double, 1, 1> RpressureZ;
+  const double raw_pressure_z = pressureZ_Message_data->pose.pose.position.z;
+
+  RpressureZ(0) = pressureZ_Message_data->pose.covariance[0];
+
+  // std::cout<<RpressureZ<<std::endl;
+  // const double R_pressureZ = 2.2500;
+
+  if (previousTimeStampIMU_.sec != 0)
+  {
+    const double deltaIMU = (imu_Message_data->header.stamp - previousTimeStampIMU_).toSec();
+
+    //ROS_INFO("TimeStamps: %f",delta);
+
+    if(init_ == false)
+    {
+      initialIMUTimestamp_ = imu_Message_data->header.stamp.toSec();
+      init_ = true;
+      ROS_INFO("ESKF initilized");
+    }
+
+    const double ros_timeStampNow = imu_Message_data->header.stamp.toSec() - initialIMUTimestamp_; 
+
+    ROS_INFO("IMU_timeStamp: %f",ros_timeStampNow);
+
+    
+
+    eskf_.predict(raw_acceleration_measurements, raw_gyro_measurements, deltaIMU, R_acc, R_gyro);
+
+    //eskf_.predict();
+  }
+
+  previousTimeStampIMU_ = imu_Message_data->header.stamp;
+
+}
+
 
 // IMU Subscriber
 void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
@@ -774,6 +876,8 @@ void setRpressureZFromYamlFile(Matrix<double, 1, 1>& R_pressureZ)
     ROS_BREAK();
   }
 }
+
+
 
 
 int main(int argc, char* argv[])

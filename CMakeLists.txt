@@ -19,6 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
         roscpp
         sensor_msgs
         tf
+        message_filters       
 )
 
 # TODO: remove unused dependencies
@@ -31,7 +32,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
         # INCLUDE_DIRS include
         # LIBRARIES 
-        CATKIN_DEPENDS geometry_msgs roscpp message_runtime sensor_msgs tf 
+        CATKIN_DEPENDS geometry_msgs roscpp message_runtime sensor_msgs tf message_filters 
         # DEPENDS eigen system_lib
 )
 
