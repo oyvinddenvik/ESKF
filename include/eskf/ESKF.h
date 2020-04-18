@@ -148,6 +148,7 @@ struct StateAndCovariance_msg
 
 struct IMUmessage 
 {
+  bool predicted_msg_;
   double timeStamp_;
   double deltaIMU_;
   Eigen::Vector3d zAccMeasurement_;
@@ -155,7 +156,7 @@ struct IMUmessage
   Eigen::Matrix<double,3,3> R_acc_;
   Eigen::Matrix<double,3,3> R_gyro_;
   IMUmessage()
-  :timeStamp_{0},deltaIMU_{0}
+  :timeStamp_{0},deltaIMU_{0},predicted_msg_{false}
   {
     zAccMeasurement_.setZero();
     zGyroMeasurement_.setZero();
@@ -163,7 +164,7 @@ struct IMUmessage
     R_gyro_.setZero();
   }
   IMUmessage(const double& timeStamp,const double& deltaIMU, const Eigen::Vector3d& zAcc, const Eigen::Vector3d& zGyro, const Eigen::Matrix<double,3,3>& Racc, const Eigen::Matrix<double,3,3> Rgyro)
-  : timeStamp_{timeStamp},deltaIMU_{deltaIMU},zAccMeasurement_{zAcc},zGyroMeasurement_{zGyro},R_acc_{Racc},R_gyro_{Rgyro}
+  : timeStamp_{timeStamp},deltaIMU_{deltaIMU},zAccMeasurement_{zAcc},zGyroMeasurement_{zGyro},R_acc_{Racc},R_gyro_{Rgyro},predicted_msg_{false}
   {
   }
 

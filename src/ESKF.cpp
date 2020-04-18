@@ -322,7 +322,7 @@ void ESKF::bufferIMUMessages(const Vector3d& zAccMeasurements, const Vector3d& z
 
   imu_msg_buffer_.push_back(imu_msg);
 
-  if(imu_msg_buffer_.size() == 20)
+  if(imu_msg_buffer_.size() == 8)
   {
     emptyIMUBuffer();
   }
@@ -359,78 +359,52 @@ void ESKF::bufferPressureZMessages(const double& pressureZ,const double& timeSta
 
 void ESKF::update()
 {
-
-  //std::cout<<"Imu_buffer_size: "<<imu_msg_buffer_.size()<<std::endl;
-  //std::cout<<"dvl_buffer_size: "<<dvl_msg_buffer_.size()<<std::endl;
-  //std::cout<<"pressureZ_buffer_size: "<<pressureZ_msg_buffer_.size()<<std::endl;
-
-  
   if(imu_msg_buffer_.size() != 0)
   {
-    //std::cout<<imu_msg_buffer_.back().timeStamp_<<std::endl;
-    //predict();
     if(dvl_msg_buffer_.size() != 0 && pressureZ_msg_buffer_.size() != 0)
     {
       if(dvl_msg_buffer_.size() == 1 && dvl_msg_buffer_.back().timeStamp_ < pressureZ_msg_buffer_.back().timeStamp_)
       {
-        if(imu_msg_buffer_.back().timeStamp_<= dvl_msg_buffer_.back().timeStamp_)
+        while(imu_msg_buffer_.front().timeStamp_< dvl_msg_buffer_.back().timeStamp_ && imu_msg_buffer_.size() != 0)
         {
-          predict();
+          if(imu_msg_buffer_.front().predicted_msg_ == false)
+          {
+            
+            predict();
+          }
         }
         updateDVL();
-        //std::cout<<"DVL Updated"<<std::endl;
         emptyDVLBuffer();
         if(pressureZ_msg_buffer_.size() == 1)
         {
           updatePressureZ();
-          //std::cout<<"PressureZ Updated"<<std::endl;
           emptyPressureZBuffer();
         }
-        
       }
       if(pressureZ_msg_buffer_.size() == 1 && pressureZ_msg_buffer_.back().timeStamp_ < dvl_msg_buffer_.back().timeStamp_)
       {
+        while(imu_msg_buffer_.front().timeStamp_<= pressureZ_msg_buffer_.back().timeStamp_ && imu_msg_buffer_.size() != 0)
+        {
+          if(imu_msg_buffer_.front().predicted_msg_ == false)
+          {
+            predict();
+          }
+        }
         updatePressureZ();
-        //std::cout<<"PressureZ Updated"<<std::endl;
         emptyPressureZBuffer();
         if(dvl_msg_buffer_.size() == 1)
         {
           updateDVL();
-          //std::cout<<"DVL Updated"<<std::endl;
           emptyDVLBuffer();
         }
       }
-      
     }
     else
     {
-      //std::cout<<"predicted"<<std::endl;
       predict();
     }
   }
- 
-
-    
-    /*
-    if(imu_msg_buffer_.back().timeStamp_ >= dvl_msg_buffer_.back().timeStamp_ && dvl_msg_buffer_.size() != 0)
-    {
-      std::cout<<"hei"<<std::endl;
-      updateDVL();
-    }
-    */
-    /*
-    else if(imu_msg_buffer_.back().timeStamp_ >= pressureZ_msg_buffer_.back().timeStamp_ && dvl_msg_buffer_.size() != 0)
-    {
-      updatePressureZ();
-    }
-    else
-    {
-      predict();
-    }
-    */
-
   return;
- 
 }
 
 
@@ -447,6 +421,8 @@ void ESKF::emptyBuffers()
 void ESKF::emptyIMUBuffer()
 {
   imu_msg_buffer_ = std::vector<IMUmessage>{imu_msg_buffer_.back()};
+
+  //imu_msg_buffer_.back()
 }
 
 void ESKF::emptyDVLBuffer()
@@ -471,12 +447,12 @@ void ESKF::predict()
   //std::cout<<"buffer_size: "<<imu_msg_buffer_.size()<<std::endl;
 
 
-  Vector3d gyroMessage{imu_msg_buffer_.back().zGyroMeasurement_};
-  Vector3d accMessage{imu_msg_buffer_.back().zAccMeasurement_};
-  Matrix<double,3,3> Racc{imu_msg_buffer_.back().R_acc_};
-  Matrix<double,3,3> Rgyro{imu_msg_buffer_.back().R_gyro_};
+  Vector3d gyroMessage{imu_msg_buffer_.front().zGyroMeasurement_};
+  Vector3d accMessage{imu_msg_buffer_.front().zAccMeasurement_};
+  Matrix<double,3,3> Racc{imu_msg_buffer_.front().R_acc_};
+  Matrix<double,3,3> Rgyro{imu_msg_buffer_.front().R_gyro_};
   
-  const double Ts{imu_msg_buffer_.back().deltaIMU_};
+  const double Ts{imu_msg_buffer_.front().deltaIMU_};
 
 
   Vector3d accBias = Sa_ * optimizationParameters_.X.block<NOMINAL_ACC_BIAS_SIZE, 1>(NOMINAL_ACC_BIAS_STATE_OFFSET, 0);
@@ -495,6 +471,10 @@ void ESKF::predict()
   const double time_Stamp{imu_msg_buffer_.back().timeStamp_};
   StateAndCovariance_msg state_and_covariance_msg{optimizationParameters_.X,optimizationParameters_.P,time_Stamp};
   nominal_covariance_buffer_.push_back(state_and_covariance_msg);
+
+  imu_msg_buffer_.front().predicted_msg_ = true;
+  imu_msg_buffer_.erase(imu_msg_buffer_.begin());
+
   //DEBUG_COUNTER++;
                                               
 }
