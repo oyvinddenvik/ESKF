@@ -19,6 +19,7 @@ ESKF::ESKF(Matrix3d Racc, Matrix3d RaccBias, Matrix3d Rgyro, Matrix3d RgyroBias,
   , Sdvl_{ std::move(Sdvl) }
   , Sinc_{ std::move(Sinc) }
 {
+  gyro_msg_in_dvl_compensation_.setZero();
   Vector3d initialPosition{ -1.96, 0.061, 0 };
   Vector3d initialVelocity{ 0, 0, 0 };
   Vector4d initialQuat{ 0.9935, 0, 0, -0.1134 };
@@ -62,6 +63,7 @@ ESKF::ESKF(const parametersInESKF& parameters)
   , D_{ blk3x3Diag(Racc_, Rgyro_, RaccBias_, RgyroBias_) }
   , optimizationParameters_{ parameters.initial_pose, parameters.initial_covariance }
 {
+  gyro_msg_in_dvl_compensation_.setZero();
   std::cout << "R_acc: " << parameters.R_acc << std::endl;
   std::cout << "R_gyro: " << parameters.R_gyro << std::endl;
   std::cout << "R_gyroBias: " << parameters.R_gyroBias << std::endl;
@@ -463,6 +465,10 @@ void ESKF::predict()
   Vector3d accelerationRectified = (Sa_ * accMessage) - accBias;
   Vector3d gyroRectified = (Sg_ * gyroMessage) - gyroBias;
 
+  // Lever arm compensation
+
+  gyro_msg_in_dvl_compensation_ = gyroRectified;
+
   optimizationParameters_.X = predictNominal(optimizationParameters_.X, accelerationRectified, gyroRectified, Ts);
   optimizationParameters_.P = predictCovariance(optimizationParameters_.X, optimizationParameters_.P,
                                                 accelerationRectified, gyroRectified, Ts, Racc, Rgyro);
@@ -580,9 +586,12 @@ InnovationParameters ESKF::innovationDVL(const VectorXd& xnominal, const MatrixX
   MatrixXd X_deltaX{ MatrixXd::Identity(NOMINAL_STATE_SIZE, ERROR_STATE_SIZE) };
   X_deltaX.block<4, 3>(6, 6) = Q_deltaT;
 
+  Vector3d leverarm {-0.035,-0.017,-0.211};
+
   InnovationParameters dvlStates(3);
   dvlStates.jacobianOfErrorStates = Hx * X_deltaX;
-  dvlStates.measurementStates = zDVLvel - Hv * vel_world;
+  dvlStates.measurementStates = (zDVLvel + crossProductMatrix(leverarm)*gyro_msg_in_dvl_compensation_) - Hv * vel_world;
+  //std::cout<<crossProductMatrix(leverarm)*gyro_msg_in_dvl_compensation_<<std::endl;
   dvlStates.measurementCovariance =
     (dvlStates.jacobianOfErrorStates * P * dvlStates.jacobianOfErrorStates.transpose()) + RDVL;
 

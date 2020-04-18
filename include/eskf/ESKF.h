@@ -373,6 +373,10 @@ private:
   void emptyDVLBuffer();
   void emptyPressureZBuffer();
   bool updated_;
+
+
+  // Lever arm compensation
+  Eigen::Vector3d gyro_msg_in_dvl_compensation_;
   
 };
 }  // namespace eskf
