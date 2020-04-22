@@ -299,6 +299,16 @@ public:
     return optimizationParameters_.P;
   }
 
+  inline double getNISPressureZ() const
+  {
+    return NISPressureZ_;
+  }
+
+  inline double getNISDVL() const
+  {
+    return NISDVL_;
+  }
+
 private:
   Eigen::VectorXd predictNominal(const Eigen::VectorXd& xnominal, const Eigen::Vector3d& accRectifiedMeasurements,
                           const Eigen::Vector3d& gyroRectifiedmeasurements, const double& Ts) const;
@@ -327,6 +337,7 @@ private:
 
   InnovationParameters innovationDVL(const Eigen::VectorXd& xnominal, const Eigen::MatrixXd& P, const Eigen::Vector3d& zDVLvel,
                                      const Eigen::Matrix3d& RDVL) const;
+
   static InnovationParameters innovationPressureZ(const Eigen::VectorXd& xnominal, const Eigen::MatrixXd& P,
                                                   const double& zPressureZpos, const Eigen::MatrixXd& RpressureZ);
 
@@ -374,9 +385,13 @@ private:
   void emptyPressureZBuffer();
   bool updated_;
 
-
   // Lever arm compensation
   Eigen::Vector3d gyro_msg_in_dvl_compensation_;
+
+  // NIS Pressure sensor
+  double NISPressureZ_;
+  double NISDVL_;
+
   
 };
 }  // namespace eskf

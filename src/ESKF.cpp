@@ -371,7 +371,6 @@ void ESKF::update()
         {
           if(imu_msg_buffer_.front().predicted_msg_ == false)
           {
-            
             predict();
           }
         }
@@ -547,9 +546,16 @@ void ESKF::updatePressureZ()
 {
   const double prs_msg{pressureZ_msg_buffer_.back().pressureZ_msg_};
   const Matrix<double,1,1> R_pressureZ{pressureZ_msg_buffer_.back().R_pressureZ_};
+  Matrix<double,1,1> NIS_pressureZ;
+  NIS_pressureZ.setZero();
 
   InnovationParameters pressureStates =
     innovationPressureZ(optimizationParameters_.X, optimizationParameters_.P,prs_msg,R_pressureZ);
+
+  // Calculate NISPressureZ
+  NIS_pressureZ = pressureStates.measurementStates.transpose()*pressureStates.measurementCovariance.inverse()*pressureStates.measurementCovariance;
+
+  NISPressureZ_ = NIS_pressureZ(0);
 
   // ESKF Update step
   MatrixXd kalmanGain = optimizationParameters_.P * pressureStates.jacobianOfErrorStates.transpose() *
@@ -559,6 +565,9 @@ void ESKF::updatePressureZ()
     (identityMatrix_ - (kalmanGain * pressureStates.jacobianOfErrorStates)) * optimizationParameters_.P;
   optimizationParameters_ = inject(optimizationParameters_.X, deltaX, pUpdate);
 }
+
+
+
 
 InnovationParameters ESKF::innovationDVL(const VectorXd& xnominal, const MatrixXd& P, const Vector3d& zDVLvel,
                                          const Matrix3d& RDVL) const
@@ -602,9 +611,16 @@ void ESKF::updateDVL()
 {
   const Vector3d dvl_msg{dvl_msg_buffer_.back().zDVl_};
   const Matrix3d R_dvl{dvl_msg_buffer_.back().R_dvl_};
+  Matrix<double,1,1> NIS_DVL;
+  NIS_DVL.setZero();
 
   InnovationParameters DVLstates{ 3 };
   DVLstates = innovationDVL(optimizationParameters_.X, optimizationParameters_.P, dvl_msg, R_dvl);
+
+  // Calculate NISPressureZ
+  NIS_DVL = DVLstates.measurementStates.transpose()*DVLstates.measurementCovariance.inverse()*DVLstates.measurementCovariance;
+
+  NISDVL_ = NIS_DVL(0);
 
   MatrixXd kalmanGain =
     optimizationParameters_.P * DVLstates.jacobianOfErrorStates.transpose() * DVLstates.measurementCovariance.inverse();

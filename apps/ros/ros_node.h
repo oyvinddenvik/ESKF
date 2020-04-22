@@ -57,6 +57,9 @@ private:
 
   // ROS publisher
   ros::Publisher publishPose_;
+  //ros::Publisher publish_error_covariance_; 
+  ros::Publisher publish_DVLNIS_;
+  ros::Publisher publish_PressureZNIS_;
 
   // Timestamps
 

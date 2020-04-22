@@ -53,6 +53,13 @@ ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh)
   ROS_INFO("Publishing State");
   publishPose_ = nh_.advertise<nav_msgs::Odometry>("pose", 1);
 
+  ROS_INFO("Publish NIS DVL");
+  publish_DVLNIS_ = nh_.advertise<nav_msgs::Odometry>("nis_dvl",1);
+
+  ROS_INFO("Publish NIS Pressure Z");
+  publish_PressureZNIS_ = nh_.advertise<nav_msgs::Odometry>("nis_pressureZ",1);
+
+
   pubTImer_ = nh_.createTimer(ros::Duration(1.0f / publish_rate), &ESKF_Node::publishPoseState, this);
 }
 
@@ -111,8 +118,6 @@ void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
     const double ros_timeStampNow = imu_Message_data->header.stamp.toSec() - initialIMUTimestamp_; 
 
     //ROS_INFO("IMU_timeStamp: %f",ros_timeStampNow);
-
-    
 
     eskf_.bufferIMUMessages(raw_acceleration_measurements,raw_gyro_measurements,ros_timeStampNow,deltaIMU,R_acc,R_gyro);
     //eskf_.predict();
@@ -174,6 +179,18 @@ void ESKF_Node::dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data
   // ROS_INFO("Velocity_z: %f",dvl_Message_data->twist.twist.linear.z);
   eskf_.bufferDVLMessages(raw_dvl_measurements,ros_timeStampNow,R_dvl_);
   //eskf_.updateDVL(raw_dvl_measurements, R_dvl_);
+
+
+  // Publish DVL - NIS
+  nav_msgs::Odometry odom_msg;
+  static size_t trace_id{ 0 };
+  odom_msg.header.frame_id = "/eskf_link";
+  odom_msg.header.seq = trace_id++;
+  odom_msg.header.stamp = ros::Time::now();
+  odom_msg.pose.pose.position.x = eskf_.getNISDVL();
+
+  publish_DVLNIS_.publish(odom_msg);
+  
 }
 
 // PressureZ subscriber
@@ -192,6 +209,17 @@ void ESKF_Node::pressureZCallback(const nav_msgs::Odometry::ConstPtr& pressureZ_
 
   eskf_.bufferPressureZMessages(raw_pressure_z,ros_timeStampNow,R_pressureZ_);
   //eskf_.updatePressureZ(raw_pressure_z, R_pressureZ_);
+
+
+   // Publish Pressure Z - NIS
+  nav_msgs::Odometry odom_msg;
+  static size_t trace_id{ 0 };
+  odom_msg.header.frame_id = "/eskf_link";
+  odom_msg.header.seq = trace_id++;
+  odom_msg.header.stamp = ros::Time::now();
+  odom_msg.pose.pose.position.x = eskf_.getNISPressureZ();
+  
+  publish_PressureZNIS_.publish(odom_msg);
 }
 
 void ESKF_Node::publishPoseState(const ros::TimerEvent&)
@@ -208,8 +236,18 @@ void ESKF_Node::publishPoseState(const ros::TimerEvent&)
   const Vector3d& gravity = eskf_.getGravity();
 
   // const VectorXd& pose = eskf_.getPose();
-  // const MatrixXd& errorCovariance = eskf_.getErrorCovariance();
+  const MatrixXd& errorCovariance = eskf_.getErrorCovariance();
 
+  Matrix<double,3,3> position_error_covariance;
+  position_error_covariance.setZero();
+  position_error_covariance = errorCovariance.block<3,3>(0,0);
+  Matrix<double,3,3> velocity_error_covariance;
+  velocity_error_covariance.setZero();
+  velocity_error_covariance = errorCovariance.block<3,3>(3,3);
+  Matrix<double,3,3> attitude_error_covariance;
+  attitude_error_covariance.setZero();
+  attitude_error_covariance = errorCovariance.block<3,3>(6,6);
+ 
   odom_msg.header.frame_id = "/eskf_link";
   odom_msg.header.seq = trace_id++;
   odom_msg.header.stamp = ros::Time::now();
@@ -245,35 +283,35 @@ void ESKF_Node::publishPoseState(const ros::TimerEvent&)
   //std::cout << "gravity_Y: " << gravity(1) << std::endl;
   //std::cout << "gravity_Z: " << gravity(2) << std::endl;
 
-  /*
+  
+
+
   // Position covariance
   for(size_t i = 0; i < NOMINAL_POSITION_STATE_SIZE;i++)
   {
       for(size_t j = 0; j<NOMINAL_POSITION_STATE_SIZE;j++)
       {
-          odom_msg.pose.covariance[NOMINAL_POSITION_STATE_SIZE*i+j] = errorCovariance(i,j);
+          odom_msg.pose.covariance[NOMINAL_POSITION_STATE_SIZE*i+j] = position_error_covariance(i,j);
       }
   }
 
+  
   for(size_t i = 0; i < NOMINAL_VELOCITY_STATE_SIZE; i++)
   {
       for(size_t j = 0; j< NOMINAL_VELOCITY_STATE_SIZE; j++)
       {
-          odom_msg.pose.covariance[(NOMINAL_VELOCITY_STATE_SIZE*i+j)+8] = errorCovariance(i +
-  NOMINAL_VELOCITY_STATE_OFFSET, j + NOMINAL_VELOCITY_STATE_OFFSET);
+          odom_msg.twist.covariance[(NOMINAL_VELOCITY_STATE_SIZE*i+j)] = velocity_error_covariance(i,j);
       }
   }
-  */
-
-  /*
-   for (size_t i = 0; i < POSE_SIZE; i++)
-    {
-      for (size_t j = 0; j < POSE_SIZE; j++)
+  
+    for(size_t i = 0; i < NOMINAL_QUATERNION_STATE_SIZE-1; i++)
+  {
+      for(size_t j = 0; j< NOMINAL_QUATERNION_STATE_SIZE-1; j++)
       {
-        message.pose.covariance[POSE_SIZE * i + j] = estimateErrorCovariance(i, j);
+          odom_msg.pose.covariance[((NOMINAL_QUATERNION_STATE_SIZE-1)*i+j)+9] = attitude_error_covariance(i,j);
       }
-    }
-  */
+  }
+
 
   // ROS_INFO("StateX: %f",odom_msg.pose.pose.position.x);
   publishPose_.publish(odom_msg);
