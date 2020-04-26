@@ -354,6 +354,9 @@ void ESKF::bufferPressureZMessages(const double& pressureZ,const double& timeSta
 {
   PressureZmessage prsmsg{timeStamp,pressureZ,R_pressureZ};
 
+
+
+
   pressureZ_msg_buffer_.push_back(prsmsg);
 
   /*
@@ -369,14 +372,19 @@ void ESKF::update()
 {
   if(imu_msg_buffer_.size() != 0)
   {
+    std::cout<<"in imu buffer size !=0"<<std::endl;
     if(dvl_msg_buffer_.size() != 0 && pressureZ_msg_buffer_.size() != 0)
     {
+      std::cout<<"in size !=0"<<std::endl;
       if(dvl_msg_buffer_.size() == 1 && dvl_msg_buffer_.back().timeStamp_ < pressureZ_msg_buffer_.back().timeStamp_)
       {
+        std::cout<<"in size ==1"<<std::endl;
         while(imu_msg_buffer_.front().timeStamp_< dvl_msg_buffer_.back().timeStamp_ && imu_msg_buffer_.size() != 0)
         {
+          std::cout<<"in imu message_buffer < dvl.msg buffer: "<<std::endl;
           if(imu_msg_buffer_.front().predicted_msg_ == false)
           {
+            std::cout<<"i"<<std::endl;
             predict();
           }
         }
