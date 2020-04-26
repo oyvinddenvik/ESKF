@@ -386,31 +386,47 @@ void ESKF::update()
           {
             std::cout<<"i"<<std::endl;
             predict();
+            std::cout<<"i2"<<std::endl;
           }
         }
         updateDVL();
+        std::cout<<"i3"<<std::endl;
         emptyDVLBuffer();
+        std::cout<<"i4"<<std::endl;
         if(pressureZ_msg_buffer_.size() == 1)
         {
+          std::cout<<"i5"<<std::endl;
           updatePressureZ();
+          std::cout<<"i6"<<std::endl;
           emptyPressureZBuffer();
+          std::cout<<"i7"<<std::endl;
         }
       }
       if(pressureZ_msg_buffer_.size() == 1 && pressureZ_msg_buffer_.back().timeStamp_ < dvl_msg_buffer_.back().timeStamp_)
       {
+        std::cout<<"i8"<<std::endl;
         while(imu_msg_buffer_.front().timeStamp_<= pressureZ_msg_buffer_.back().timeStamp_ && imu_msg_buffer_.size() != 0)
         {
+          std::cout<<"i9"<<std::endl;
           if(imu_msg_buffer_.front().predicted_msg_ == false)
           {
+            std::cout<<"i10"<<std::endl;
             predict();
+            std::cout<<"i11"<<std::endl;
           }
         }
+        std::cout<<"i12"<<std::endl;
         updatePressureZ();
+        std::cout<<"i13"<<std::endl;
         emptyPressureZBuffer();
+        std::cout<<"i14"<<std::endl;
         if(dvl_msg_buffer_.size() == 1)
         {
+          std::cout<<"i15"<<std::endl;
           updateDVL();
+          std::cout<<"i16"<<std::endl;
           emptyDVLBuffer();
+          std::cout<<"i17"<<std::endl;
         }
       }
     }
