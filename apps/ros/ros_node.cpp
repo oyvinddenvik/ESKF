@@ -188,7 +188,8 @@ void ESKF_Node::dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data
   odom_msg.header.seq = trace_id++;
   odom_msg.header.stamp = ros::Time::now();
   odom_msg.pose.pose.position.x = eskf_.getNISDVL();
-
+  //double nis_DVL_msg{eskf_.getNISDVL()};
+  //std::cout<<nis_DVL_msg<<std::endl;
   publish_DVLNIS_.publish(odom_msg);
   
 }

@@ -374,7 +374,6 @@ private:
   bool publish_execution_time_{ false };
 
   // Buffer implementation
-
   std::vector<IMUmessage> imu_msg_buffer_;
   std::vector<DVLmessage> dvl_msg_buffer_;
   std::vector<PressureZmessage> pressureZ_msg_buffer_;
