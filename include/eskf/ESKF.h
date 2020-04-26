@@ -50,10 +50,6 @@ constexpr int NOMINAL_GRAVITY_SIZE{ 3 };
 constexpr double GRAVITY{ 9.80665 };
 constexpr int DEFAULT_IMU_RATE{ 125 };
 
-// ---------------- DEBUG: REMOVE WHEN FINISHED ------------
-int DEBUG_COUNTER{0};
-// ---------------------------------------------------------
-
 struct AdandGQGD
 {
   Eigen::Matrix<double, ERROR_STATE_SIZE, ERROR_STATE_SIZE> Ad;    //(15x15)

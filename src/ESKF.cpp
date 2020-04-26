@@ -450,7 +450,7 @@ void ESKF::emptyPressureZBuffer()
 
 void ESKF::predict()
 {
-  //std::cout<<"Counter: "<<DEBUG_COUNTER<<std::endl;
+  
   //std::cout<<"buffer_size: "<<imu_msg_buffer_.size()<<std::endl;
 
 
@@ -486,7 +486,6 @@ void ESKF::predict()
   imu_msg_buffer_.front().predicted_msg_ = true;
   imu_msg_buffer_.erase(imu_msg_buffer_.begin());
 
-  //DEBUG_COUNTER++;
                                               
 }
 
