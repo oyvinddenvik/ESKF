@@ -74,8 +74,12 @@ private:
 
 
   // Execution time
-	std::vector<double> execution_time_vector_; 
-	bool publish_execution_time_;
+	std::vector<double> execution_time_vector_imu_; 
+  std::vector<double> execution_time_vector_dvl_;
+  std::vector<double> execution_time_vector_pressureZ_;
+	bool publish_execution_time_dvl_;
+  bool publish_execution_time_PressureZ_;
+  bool publish_execution_time_imu_;
 
 };
 

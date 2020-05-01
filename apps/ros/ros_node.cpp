@@ -12,7 +12,9 @@ ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh)
   : nh_{ pnh }
   , init_{ false }
   , eskf_{ loadParametersFromYamlFile() }
-  , publish_execution_time_{true}
+  , publish_execution_time_imu_{true}
+  , publish_execution_time_dvl_{true}
+  , publish_execution_time_PressureZ_{true}
   //,eskf_{R_ACC,R_ACCBIAS,R_GYRO,R_GYROBIAS,P_GYRO_BIAS,P_ACC_BIAS,returnStaticRotationFromIMUtoBodyFrame(roll_pitch_yaw_NED_and_alignment_corrected),returnStaticRotationFromIMUtoBodyFrame(roll_pitch_yaw_NED_and_alignment_corrected),S_DVL,S_INC}
 {
   R_dvl_.setZero();
@@ -55,7 +57,7 @@ ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh)
 void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
 {
 
-  auto start = std::chrono::steady_clock::now();
+  
 
   //double Ts{ 0 };
   int imu_publish_rate{ DEFAULT_IMU_RATE };
@@ -106,9 +108,28 @@ void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
 
     //ROS_INFO("IMU_timeStamp: %f",ros_timeStampNow);
 
-    
-
+    // Execution time
+    auto start = std::chrono::steady_clock::now();
     eskf_.predict(raw_acceleration_measurements, raw_gyro_measurements, deltaIMU, R_acc, R_gyro);
+     
+	  auto end = std::chrono::steady_clock::now();
+
+	  auto diff = end - start;
+
+	  auto diff_in_ms = std::chrono::duration <double, std::milli> (diff).count();
+
+    //std::cout<<diff_in_ms<<std::endl;
+    if(execution_time_vector_imu_.size() == 1000 && publish_execution_time_imu_ == true)
+    {
+      std::cout<<"Max value of IMU: "<<maxOfVector(execution_time_vector_imu_)<<std::endl;
+      std::cout<<"Mean value of IMU: "<<meanOfVector(execution_time_vector_imu_)<<std::endl;
+      std::cout<<"STD value of IMU: "<<stanardDeviationOfVector(execution_time_vector_imu_)<<std::endl;
+      publish_execution_time_imu_ = false;
+    }
+    else
+    {
+      execution_time_vector_imu_.push_back(diff_in_ms);
+    }
 
     //eskf_.predict();
   }
@@ -116,29 +137,6 @@ void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
   previousTimeStampIMU_ = imu_Message_data->header.stamp;
 
   
-
-
-  // Execution time
-	auto end = std::chrono::steady_clock::now();
-
-	auto diff = end - start;
-
-	auto diff_in_ms = std::chrono::duration <double, std::milli> (diff).count();
-
-  //std::cout<<diff_in_ms<<std::endl;
-
-	
-	if(execution_time_vector_.size() == 1000 && publish_execution_time_ == true)
-	{
-		std::cout<<"Max value: "<<maxOfVector(execution_time_vector_)<<std::endl;
-		std::cout<<"Mean: "<<meanOfVector(execution_time_vector_)<<std::endl;
-		std::cout<<"STD: "<<stanardDeviationOfVector(execution_time_vector_)<<std::endl;
-		publish_execution_time_ = false;
-	}
-	else
-	{
-		execution_time_vector_.push_back(diff_in_ms);
-	}
 }
 
 // DVL subscriber
@@ -159,7 +157,26 @@ void ESKF_Node::dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data
   }
 
   // ROS_INFO("Velocity_z: %f",dvl_Message_data->twist.twist.linear.z);
+  auto start = std::chrono::steady_clock::now();
   eskf_.updateDVL(raw_dvl_measurements, R_dvl_);
+  auto end = std::chrono::steady_clock::now();
+
+  auto diff = end - start;
+
+  auto diff_in_ms = std::chrono::duration <double, std::milli> (diff).count();
+
+  //std::cout<<diff_in_ms<<std::endl;
+  if(execution_time_vector_dvl_.size() == 500 && publish_execution_time_dvl_ == true)
+  {
+    std::cout<<"Max value of DVL: "<<maxOfVector(execution_time_vector_dvl_)<<std::endl;
+    std::cout<<"Mean value of DVL: "<<meanOfVector(execution_time_vector_dvl_)<<std::endl;
+    std::cout<<"STD value of DVL: "<<stanardDeviationOfVector(execution_time_vector_dvl_)<<std::endl;
+    publish_execution_time_dvl_ = false;
+  }
+  else
+  {
+    execution_time_vector_dvl_.push_back(diff_in_ms);
+  }
 }
 
 // PressureZ subscriber
@@ -173,11 +190,32 @@ void ESKF_Node::pressureZCallback(const nav_msgs::Odometry::ConstPtr& pressureZ_
   // std::cout<<RpressureZ<<std::endl;
   // const double R_pressureZ = 2.2500;
 
+  auto start = std::chrono::steady_clock::now();
   eskf_.updatePressureZ(raw_pressure_z, R_pressureZ_);
+  auto end = std::chrono::steady_clock::now();
+
+  auto diff = end - start;
+
+  auto diff_in_ms = std::chrono::duration <double, std::milli> (diff).count();
+
+  //std::cout<<diff_in_ms<<std::endl;
+  if(execution_time_vector_pressureZ_.size() == 500 && publish_execution_time_PressureZ_ == true)
+  {
+    std::cout<<"Max value of PressureZ: "<<maxOfVector(execution_time_vector_pressureZ_)<<std::endl;
+    std::cout<<"Mean value of PressureZ: "<<meanOfVector(execution_time_vector_pressureZ_)<<std::endl;
+    std::cout<<"STD value of PressureZ: "<<stanardDeviationOfVector(execution_time_vector_pressureZ_)<<std::endl;
+    publish_execution_time_PressureZ_ = false;
+  }
+  else
+  {
+    execution_time_vector_pressureZ_.push_back(diff_in_ms);
+  }
 }
 
 void ESKF_Node::publishPoseState(const ros::TimerEvent&)
 {
+
+
   nav_msgs::Odometry odom_msg;
   static size_t trace_id{ 0 };
 
