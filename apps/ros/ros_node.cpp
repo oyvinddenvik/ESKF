@@ -224,8 +224,17 @@ void ESKF_Node::publishPoseState(const ros::TimerEvent&)
   Quaterniond quaternion = eskf_.getQuaternion();
   const Vector3d& gravity = eskf_.getGravity();
 
-  // const VectorXd& pose = eskf_.getPose();
-  // const MatrixXd& errorCovariance = eskf_.getErrorCovariance();
+  const MatrixXd& errorCovariance = eskf_.getErrorCovariance();
+
+  Matrix<double,3,3> position_error_covariance;
+  position_error_covariance.setZero();
+  position_error_covariance = errorCovariance.block<3,3>(0,0);
+  Matrix<double,3,3> velocity_error_covariance;
+  velocity_error_covariance.setZero();
+  velocity_error_covariance = errorCovariance.block<3,3>(3,3);
+  Matrix<double,3,3> attitude_error_covariance;
+  attitude_error_covariance.setZero();
+  attitude_error_covariance = errorCovariance.block<3,3>(6,6);
 
   odom_msg.header.frame_id = "/eskf_link";
   odom_msg.header.seq = trace_id++;
@@ -242,55 +251,32 @@ void ESKF_Node::publishPoseState(const ros::TimerEvent&)
   odom_msg.pose.pose.orientation.z = quaternion.z();       // pose(StateMemberQz);
   // odom_msg.pose.covariance
 
-  // loadParametersFromYamlFile();
-
-  /*
-  Quat q;
-  EulerAngles euler;
-
-  q.w = odom_msg.pose.pose.orientation.w;
-  q.x = odom_msg.pose.pose.orientation.x;
-  q.y = odom_msg.pose.pose.orientation.y;
-  q.z = odom_msg.pose.pose.orientation.z;
-
-  euler = fromQuaternionToEulerAngles(q);
-
-  */
-  //auto euler = quaternion.toRotationMatrix().eulerAngles(0, 1, 2) * 180.0 / 3.14;
-  //std::cout << "Roll pitch yaw" << euler << std::endl;
-  //std::cout << "gravity_X: " << gravity(0) << std::endl;
-  //std::cout << "gravity_Y: " << gravity(1) << std::endl;
-  //std::cout << "gravity_Z: " << gravity(2) << std::endl;
-
-  /*
   // Position covariance
   for(size_t i = 0; i < NOMINAL_POSITION_STATE_SIZE;i++)
   {
       for(size_t j = 0; j<NOMINAL_POSITION_STATE_SIZE;j++)
       {
-          odom_msg.pose.covariance[NOMINAL_POSITION_STATE_SIZE*i+j] = errorCovariance(i,j);
+          odom_msg.pose.covariance[NOMINAL_POSITION_STATE_SIZE*i+j] = position_error_covariance(i,j);
       }
   }
 
+  
   for(size_t i = 0; i < NOMINAL_VELOCITY_STATE_SIZE; i++)
   {
       for(size_t j = 0; j< NOMINAL_VELOCITY_STATE_SIZE; j++)
       {
-          odom_msg.pose.covariance[(NOMINAL_VELOCITY_STATE_SIZE*i+j)+8] = errorCovariance(i +
-  NOMINAL_VELOCITY_STATE_OFFSET, j + NOMINAL_VELOCITY_STATE_OFFSET);
+          odom_msg.twist.covariance[(NOMINAL_VELOCITY_STATE_SIZE*i+j)] = velocity_error_covariance(i,j);
       }
   }
-  */
-
-  /*
-   for (size_t i = 0; i < POSE_SIZE; i++)
-    {
-      for (size_t j = 0; j < POSE_SIZE; j++)
+  
+    for(size_t i = 0; i < NOMINAL_QUATERNION_STATE_SIZE-1; i++)
+  {
+      for(size_t j = 0; j< NOMINAL_QUATERNION_STATE_SIZE-1; j++)
       {
-        message.pose.covariance[POSE_SIZE * i + j] = estimateErrorCovariance(i, j);
+          odom_msg.pose.covariance[((NOMINAL_QUATERNION_STATE_SIZE-1)*i+j)+9] = attitude_error_covariance(i,j);
       }
-    }
-  */
+  }
+
 
   // ROS_INFO("StateX: %f",odom_msg.pose.pose.position.x);
   publishPose_.publish(odom_msg);
