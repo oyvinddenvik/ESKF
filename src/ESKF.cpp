@@ -11,12 +11,15 @@ ESKF::ESKF(Matrix3d Racc, Matrix3d RaccBias, Matrix3d Rgyro, Matrix3d RgyroBias,
   , Racc_{ std::move(Racc) }
   , RaccBias_{ std::move(RaccBias) }
   , Rgyro_{ std::move(Rgyro) }
+  , updated_{0}
   , RgyroBias_{ std::move(RgyroBias) }
   , D_{ blk3x3Diag(Racc_, Rgyro_, RaccBias_, RgyroBias_) }
   , Sa_{ std::move(Sa) }
   , Sg_{ std::move(Sg) }
   , Sdvl_{ std::move(Sdvl) }
   , Sinc_{ std::move(Sinc) }
+  , NISPressureZ_{0}
+  , NISDVL_{0}
 {
   Vector3d initialPosition{ -1.96, 0.061, 0 };
   Vector3d initialVelocity{ 0, 0, 0 };
@@ -52,6 +55,7 @@ ESKF::ESKF(const parametersInESKF& parameters)
   , RgyroBias_{ parameters.R_gyroBias }
   , Sdvl_{ eulerToRotationMatrix(parameters.Sr_to_ned_dvl + parameters.Sr_dvl_alignment) }
   , Sinc_{ parameters.S_inc }
+  , updated_{0}
   , Sa_{ eulerToRotationMatrix(parameters.Sr_to_ned_accelerometer + parameters.Sr_accelerometer_aligment)} //+ eulerToRotationMatrix(parameters.Sr_accelerometer_aligment)}
   , Sg_{ eulerToRotationMatrix(parameters.Sr_to_ned_gyro + parameters.Sr_gyro_aligment)} //+ eulerToRotationMatrix(parameters.Sr_gyro_aligment)}
   , pgyroBias_{ parameters.pgyroBias }
@@ -222,13 +226,15 @@ MatrixXd ESKF::AerrDiscretizedThirdOrder(const VectorXd& xnominal, const Vector3
 
 MatrixXd ESKF::Fi()
 {
+  Quaterniond quaternion{ optimizationParameters_.X(StateMemberQw), optimizationParameters_.X(StateMemberQx),
+                          optimizationParameters_.X(StateMemberQy), optimizationParameters_.X(StateMemberQz) };
   MatrixXd F_i(ERROR_STATE_SIZE, 12);
   Matrix3d identity_matrix_3x3 = Matrix3d::Zero();
   identity_matrix_3x3.setIdentity();
   F_i.setZero();
 
-  F_i.block<3, 3>(3, 0) = identity_matrix_3x3;
-  F_i.block<3, 3>(6, 3) = identity_matrix_3x3;
+  F_i.block<3, 3>(3, 0) = -1.0*quaternion.toRotationMatrix();
+  F_i.block<3, 3>(6, 3) = -1.0*identity_matrix_3x3;
   F_i.block<3, 3>(9, 6) = identity_matrix_3x3;
   F_i.block<3, 3>(12, 9) = identity_matrix_3x3;
 
@@ -257,40 +263,39 @@ AdandGQGD ESKF::discreteErrorMatrix(const VectorXd& xnominal, const Vector3d& ac
 
   // Initilize
   AdandGQGD errorMatrix;
-  // MatrixXd vanLoan(ERROR_STATE_SIZE*2, ERROR_STATE_SIZE*2);
-  // MatrixXd vanLoanExponentional(ERROR_STATE_SIZE*2, ERROR_STATE_SIZE*2);
-  // MatrixXd zeros(ERROR_STATE_SIZE, ERROR_STATE_SIZE);
-  // MatrixXd A(ERROR_STATE_SIZE, ERROR_STATE_SIZE);
-  // MatrixXd G(ERROR_STATE_SIZE, 12);
-  // MatrixXd FDF(ERROR_STATE_SIZE,ERROR_STATE_SIZE);
+   MatrixXd vanLoan(ERROR_STATE_SIZE*2, ERROR_STATE_SIZE*2);
+   MatrixXd vanLoanExponentional(ERROR_STATE_SIZE*2, ERROR_STATE_SIZE*2);
+   MatrixXd zeros(ERROR_STATE_SIZE, ERROR_STATE_SIZE);
+   MatrixXd A(ERROR_STATE_SIZE, ERROR_STATE_SIZE);
+   MatrixXd G(ERROR_STATE_SIZE, 12);
+   MatrixXd FDF(ERROR_STATE_SIZE,ERROR_STATE_SIZE);
 
-  // A.setZero();
-  // G.setZero();
-  // vanLoanExponentional.setZero();
-  // zeros.setZero();
-  // vanLoan.setZero();
-  // FDF.setZero();
+   A.setZero();
+   G.setZero();
+   vanLoanExponentional.setZero();
+   zeros.setZero();
+   vanLoan.setZero();
+   FDF.setZero();
 
-  // D_ = blk3x3Diag(Racc, Rgyro, RaccBias_, RgyroBias_);
+   //D_ = blk3x3Diag(Racc, Rgyro, RaccBias_, RgyroBias_);
 
-  // A = Aerr(xnominal, accRectifiedMeasurements, gyroRectifiedmeasurements);
-  // G = Gerr(xnominal);
+   A = Aerr(xnominal, accRectifiedMeasurements, gyroRectifiedmeasurements);
+   G = Gerr(xnominal);
 
-  // Calculate Van Loan
-  // vanLoan << -1.0 * A, G* D_* G.transpose(),
-  //			zeros, A.transpose();
+   //Calculate Van Loan
+   vanLoan << -1.0 * A, G* D_* G.transpose(),
+  			zeros, A.transpose();
 
-  // vanLoan = vanLoan * Ts;
+   vanLoan = vanLoan * Ts;
 
-  // Computation time very slow
-  // vanLoanExponentional= vanLoan.exp();
+  //Computation time very slow
+   vanLoanExponentional= vanLoan.exp();
 
-  // errorMatrix.Ad = vanLoanExponentional.block<ERROR_STATE_SIZE, ERROR_STATE_SIZE>(ERROR_STATE_SIZE,
-  // ERROR_STATE_SIZE).transpose(); errorMatrix.GQGD = vanLoanExponentional.block<ERROR_STATE_SIZE,
-  // ERROR_STATE_SIZE>(ERROR_STATE_SIZE, ERROR_STATE_SIZE).transpose() * vanLoanExponentional.block<ERROR_STATE_SIZE,
-  // ERROR_STATE_SIZE>(0, ERROR_STATE_SIZE);
-  errorMatrix.Ad = AerrDiscretizedThirdOrder(xnominal, accRectifiedMeasurements, gyroRectifiedmeasurements, Ts);
-  errorMatrix.GQGD = F_i_ * D_ * F_i_.transpose();
+   errorMatrix.Ad = vanLoanExponentional.block<ERROR_STATE_SIZE, ERROR_STATE_SIZE>(ERROR_STATE_SIZE,
+   ERROR_STATE_SIZE).transpose(); 
+   errorMatrix.GQGD = vanLoanExponentional.block<ERROR_STATE_SIZE,ERROR_STATE_SIZE>(ERROR_STATE_SIZE, ERROR_STATE_SIZE).transpose() * vanLoanExponentional.block<ERROR_STATE_SIZE,ERROR_STATE_SIZE>(0, ERROR_STATE_SIZE);
+  //errorMatrix.Ad = AerrDiscretizedThirdOrder(xnominal, accRectifiedMeasurements, gyroRectifiedmeasurements, Ts);
+  //errorMatrix.GQGD = F_i_ * D_ * F_i_.transpose();
 
   // Execution time
   // auto end = std::chrono::steady_clock::now();
@@ -314,17 +319,195 @@ MatrixXd ESKF::predictCovariance(const VectorXd& xnominal, const MatrixXd& P, co
   return Pprediction;
 }
 
+
+
+void ESKF::bufferIMUMessages(const Vector3d& zAccMeasurements, const Vector3d& zGyroMeasurements, const double& timeStamp, const double& deltaIMU,const Matrix3d& Racc, const Matrix3d& Rgyro)
+{
+  IMUmessage imu_msg{timeStamp,deltaIMU,zAccMeasurements,zGyroMeasurements,Racc,Rgyro};
+
+  imu_msg_buffer_.push_back(imu_msg);
+
+  if(imu_msg_buffer_.size() == 20)
+  {
+    emptyIMUBuffer();
+  }
+}
+
+void ESKF::bufferDVLMessages(const Vector3d& zDvlMeasurements,const double timeStamp,const Matrix3d& Rdvl)
+{
+  DVLmessage dvlmsg{timeStamp,zDvlMeasurements,Rdvl};
+
+  dvl_msg_buffer_.push_back(dvlmsg);
+
+  /*
+  if(dvl_msg_buffer_.size() == 2)
+  {
+    emptyDVLBuffer();
+  }
+  */
+}
+
+void ESKF::bufferPressureZMessages(const double& pressureZ,const double& timeStamp, Matrix<double,1,1> R_pressureZ)
+{
+  PressureZmessage prsmsg{timeStamp,pressureZ,R_pressureZ};
+
+  pressureZ_msg_buffer_.push_back(prsmsg);
+
+  /*
+  if(pressureZ_msg_buffer_.size() == 2)
+  {
+    emptyPressureZBuffer();
+  }
+  */
+}
+
+void ESKF::UpdateOnlyWithPrediction()
+{
+  if(imu_msg_buffer_.size() != 0)
+  {
+    predictWithBuffer();
+  }
+  else
+  {
+    return;
+  }
+}
+
+
+void ESKF::update()
+{
+  if(imu_msg_buffer_.size() != 0)
+  {
+    if(dvl_msg_buffer_.size() != 0 && pressureZ_msg_buffer_.size() != 0)
+    {
+      if(dvl_msg_buffer_.size() == 1 && dvl_msg_buffer_.back().timeStamp_ < pressureZ_msg_buffer_.back().timeStamp_)
+      {
+        while(imu_msg_buffer_.front().timeStamp_< dvl_msg_buffer_.back().timeStamp_ && imu_msg_buffer_.size() != 0)
+        {
+          if(imu_msg_buffer_.front().predicted_msg_ == false)
+          {
+            predictWithBuffer();
+          }
+        }
+        updateDVLWithBuffer();
+        emptyDVLBuffer();
+        if(pressureZ_msg_buffer_.size() == 1)
+        {
+          updatePressureZWithBuffer();
+          emptyPressureZBuffer();
+        }
+      }
+      if(pressureZ_msg_buffer_.size() == 1 && pressureZ_msg_buffer_.back().timeStamp_ < dvl_msg_buffer_.back().timeStamp_)
+      {
+        while(imu_msg_buffer_.front().timeStamp_<= pressureZ_msg_buffer_.back().timeStamp_ && imu_msg_buffer_.size() != 0)
+        {
+          if(imu_msg_buffer_.front().predicted_msg_ == false)
+          {
+            predictWithBuffer();
+          }
+        }
+        updatePressureZWithBuffer();
+        emptyPressureZBuffer();
+        if(dvl_msg_buffer_.size() == 1)
+        {
+          updateDVLWithBuffer();
+          emptyDVLBuffer();
+        }
+      }
+    }
+    else
+    {
+      predictWithBuffer();
+    }
+  }
+  return;
+}
+
+
+
+/*
+void ESKF::emptyBuffers()
+{
+  imu_msg_buffer_ = std::vector<IMUmessage>{imu_msg_buffer_.back()};
+  dvl_msg_buffer_ = std::vector<DVLmessage>{dvl_msg_buffer_.back()};
+  pressureZ_msg_buffer_ = std::vector<PressureZmessage>{pressureZ_msg_buffer_.back()};
+}
+*/
+
+void ESKF::emptyIMUBuffer()
+{
+  imu_msg_buffer_ = std::vector<IMUmessage>{imu_msg_buffer_.back()};
+
+  //imu_msg_buffer_.back()
+}
+
+void ESKF::emptyDVLBuffer()
+{
+  dvl_msg_buffer_ = std::vector<DVLmessage>{};
+
+  //dvl_msg_buffer_.back()
+}
+
+void ESKF::emptyPressureZBuffer()
+{
+  pressureZ_msg_buffer_ = std::vector<PressureZmessage>{};
+
+  //pressureZ_msg_buffer_.back()
+}
+
+
+
+void ESKF::predictWithBuffer()
+{
+  
+  //std::cout<<"buffer_size: "<<imu_msg_buffer_.size()<<std::endl;
+
+
+  Vector3d gyroMessage{imu_msg_buffer_.front().zGyroMeasurement_};
+  Vector3d accMessage{imu_msg_buffer_.front().zAccMeasurement_};
+  Matrix<double,3,3> Racc{imu_msg_buffer_.front().R_acc_};
+  Matrix<double,3,3> Rgyro{imu_msg_buffer_.front().R_gyro_};
+  
+  const double Ts{imu_msg_buffer_.front().deltaIMU_};
+
+
+  Vector3d accBias = Sa_*optimizationParameters_.X.block<NOMINAL_ACC_BIAS_SIZE, 1>(NOMINAL_ACC_BIAS_STATE_OFFSET, 0);
+  Vector3d gyroBias = Sg_*optimizationParameters_.X.block<NOMINAL_GYRO_BIAS_SIZE, 1>(NOMINAL_GYRO_BIAS_STATE_OFFSET, 0);
+
+
+  Vector3d accelerationRectified = (Sa_ * accMessage) - accBias;
+  Vector3d gyroRectified = (Sg_ * gyroMessage) - gyroBias;
+
+  // Lever arm compensation
+
+  gyro_msg_in_dvl_compensation_ = gyroRectified;
+
+  optimizationParameters_.X = predictNominal(optimizationParameters_.X, accelerationRectified, gyroRectified, Ts);
+  optimizationParameters_.P = predictCovariance(optimizationParameters_.X, optimizationParameters_.P,
+                                                accelerationRectified, gyroRectified, Ts, Racc, Rgyro);
+
+  // Add state and covariance to buffer
+  //const double time_Stamp{imu_msg_buffer_.back().timeStamp_};
+  //StateAndCovariance_msg state_and_covariance_msg{optimizationParameters_.X,optimizationParameters_.P,time_Stamp};
+  //nominal_covariance_buffer_.push_back(state_and_covariance_msg);
+
+  imu_msg_buffer_.front().predicted_msg_ = true;
+  imu_msg_buffer_.erase(imu_msg_buffer_.begin());
+
+                                              
+}
+
+
 void ESKF::predict(const Vector3d& zAccMeasurements, const Vector3d& zGyroMeasurements, const double& Ts,
                    const Matrix3d& Racc, const Matrix3d& Rgyro)
 {
   
+  // NB: Changed Sa_ 
+  Vector3d accBias = Sa_*optimizationParameters_.X.block<NOMINAL_ACC_BIAS_SIZE, 1>(NOMINAL_ACC_BIAS_STATE_OFFSET, 0);
+  Vector3d gyroBias = Sg_*optimizationParameters_.X.block<NOMINAL_GYRO_BIAS_SIZE, 1>(NOMINAL_GYRO_BIAS_STATE_OFFSET, 0);
 
-  Vector3d accBias = Sa_ * optimizationParameters_.X.block<NOMINAL_ACC_BIAS_SIZE, 1>(NOMINAL_ACC_BIAS_STATE_OFFSET, 0);
-  Vector3d gyroBias =
-    Sg_ * optimizationParameters_.X.block<NOMINAL_GYRO_BIAS_SIZE, 1>(NOMINAL_GYRO_BIAS_STATE_OFFSET, 0);
-
-  Vector3d accelerationRectified = Sa_ * zAccMeasurements - accBias;
-  Vector3d gyroRectified = Sg_ * zGyroMeasurements - gyroBias;
+  Vector3d accelerationRectified = (Sa_* zAccMeasurements) - accBias;
+  Vector3d gyroRectified = (Sg_ * zGyroMeasurements) - gyroBias;
 
   optimizationParameters_.X = predictNominal(optimizationParameters_.X, accelerationRectified, gyroRectified, Ts);
   optimizationParameters_.P = predictCovariance(optimizationParameters_.X, optimizationParameters_.P,
@@ -397,6 +580,38 @@ void ESKF::updatePressureZ(const double& zPressureZpos, const MatrixXd& Rpressur
   InnovationParameters pressureStates =
     innovationPressureZ(optimizationParameters_.X, optimizationParameters_.P, zPressureZpos, RpressureZ);
 
+  Matrix<double,1,1> NIS_pressureZ;
+  NIS_pressureZ.setZero();
+
+  // Calculate NISPressureZ
+  NIS_pressureZ = pressureStates.measurementStates.transpose()*pressureStates.measurementCovariance.inverse()*pressureStates.measurementStates;
+
+  NISPressureZ_ = NIS_pressureZ(0);
+
+  // ESKF Update step
+  MatrixXd kalmanGain = optimizationParameters_.P * pressureStates.jacobianOfErrorStates.transpose() *
+                        pressureStates.measurementCovariance.inverse();
+  MatrixXd deltaX = kalmanGain * pressureStates.measurementStates;
+  MatrixXd pUpdate =
+    (identityMatrix_ - (kalmanGain * pressureStates.jacobianOfErrorStates)) * optimizationParameters_.P;
+  optimizationParameters_ = inject(optimizationParameters_.X, deltaX, pUpdate);
+}
+
+void ESKF::updatePressureZWithBuffer()
+{
+  const double prs_msg{pressureZ_msg_buffer_.back().pressureZ_msg_};
+  const Matrix<double,1,1> R_pressureZ{pressureZ_msg_buffer_.back().R_pressureZ_};
+  Matrix<double,1,1> NIS_pressureZ;
+  NIS_pressureZ.setZero();
+
+  InnovationParameters pressureStates =
+    innovationPressureZ(optimizationParameters_.X, optimizationParameters_.P,prs_msg,R_pressureZ);
+
+  // Calculate NISPressureZ
+  NIS_pressureZ = pressureStates.measurementStates.transpose()*pressureStates.measurementCovariance.inverse()*pressureStates.measurementStates;
+
+  NISPressureZ_ = NIS_pressureZ(0);
+
   // ESKF Update step
   MatrixXd kalmanGain = optimizationParameters_.P * pressureStates.jacobianOfErrorStates.transpose() *
                         pressureStates.measurementCovariance.inverse();
@@ -441,10 +656,79 @@ InnovationParameters ESKF::innovationDVL(const VectorXd& xnominal, const MatrixX
   return dvlStates;
 }
 
+InnovationParameters ESKF::innovationDVLWithLeverArm(const VectorXd& xnominal, const MatrixXd& P, const Vector3d& zDVLvel,
+                                         const Matrix3d& RDVL) const
+{
+  Vector3d vel_world = xnominal.block<NOMINAL_VELOCITY_STATE_SIZE, 1>(NOMINAL_VELOCITY_STATE_OFFSET, 0);
+  Quaterniond nominalQuaternion{ optimizationParameters_.X(StateMemberQw), optimizationParameters_.X(StateMemberQx),
+                                 optimizationParameters_.X(StateMemberQy), optimizationParameters_.X(StateMemberQz) };
+
+  Matrix3d Hv{ nominalQuaternion.conjugate() };  // R_world_to_body
+
+  // TODO: use analyic version from Sola paper
+  MatrixXd jacobianMatrix = jacobianFdOfDVL(Hv * vel_world, nominalQuaternion.conjugate(), 0.000000001, vel_world);
+
+  MatrixXd Hx{
+    (MatrixXd(3, NOMINAL_STATE_SIZE) << Matrix3d::Zero(), Hv, jacobianMatrix, MatrixXd::Zero(3, 9)).finished()
+  };
+
+  MatrixXd Q_deltaT{ (MatrixXd(4, 3) << -nominalQuaternion.x(), -nominalQuaternion.y(), -nominalQuaternion.z(),
+                      nominalQuaternion.w(), -nominalQuaternion.z(), nominalQuaternion.y(), nominalQuaternion.z(),
+                      nominalQuaternion.w(), -nominalQuaternion.x(), -nominalQuaternion.y(), nominalQuaternion.x(),
+                      nominalQuaternion.w())
+                       .finished() };
+  Q_deltaT *= 0.5;
+
+  MatrixXd X_deltaX{ MatrixXd::Identity(NOMINAL_STATE_SIZE, ERROR_STATE_SIZE) };
+  X_deltaX.block<4, 3>(6, 6) = Q_deltaT;
+
+  Vector3d leverarm {0.0,0.0,0.0};     //-0.035,-0.017,-0.211  -0.017,-0.035,0.211
+
+  InnovationParameters dvlStates(3);
+  dvlStates.jacobianOfErrorStates = Hx * X_deltaX;
+  dvlStates.measurementStates = (zDVLvel + crossProductMatrix(leverarm)*gyro_msg_in_dvl_compensation_) - Hv * vel_world;
+  //std::cout<<crossProductMatrix(leverarm)*gyro_msg_in_dvl_compensation_<<std::endl;
+  dvlStates.measurementCovariance =
+    (dvlStates.jacobianOfErrorStates * P * dvlStates.jacobianOfErrorStates.transpose()) + RDVL;
+
+  return dvlStates;
+}
+
+
+void ESKF::updateDVLWithBuffer()
+{
+  const Vector3d dvl_msg{dvl_msg_buffer_.back().zDVl_};
+  const Matrix3d R_dvl{dvl_msg_buffer_.back().R_dvl_};
+  Matrix<double,1,1> NIS_DVL;
+  NIS_DVL.setZero();
+
+  InnovationParameters DVLstates{ 3 };
+  DVLstates = innovationDVLWithLeverArm(optimizationParameters_.X, optimizationParameters_.P, dvl_msg, R_dvl);
+
+  // Calculate NISPressureZ
+  NIS_DVL = DVLstates.measurementStates.transpose()*DVLstates.measurementCovariance.inverse()*DVLstates.measurementStates;
+
+  NISDVL_ = NIS_DVL(0);
+
+  MatrixXd kalmanGain =
+    optimizationParameters_.P * DVLstates.jacobianOfErrorStates.transpose() * DVLstates.measurementCovariance.inverse();
+  MatrixXd deltaX = kalmanGain * DVLstates.measurementStates;
+  MatrixXd pUpdate = (identityMatrix_ - (kalmanGain * DVLstates.jacobianOfErrorStates)) * optimizationParameters_.P;
+
+  optimizationParameters_ = inject(optimizationParameters_.X, deltaX, pUpdate);
+}
+
+
 void ESKF::updateDVL(const Vector3d& zDVLvel, const Matrix3d& RDVL)
 {
+  Matrix<double,1,1> NIS_DVL;
+  NIS_DVL.setZero();
   InnovationParameters DVLstates{ 3 };
   DVLstates = innovationDVL(optimizationParameters_.X, optimizationParameters_.P, zDVLvel, RDVL);
+
+  NIS_DVL = DVLstates.measurementStates.transpose()*DVLstates.measurementCovariance.inverse()*DVLstates.measurementStates;
+
+  NISDVL_ = NIS_DVL(0);
 
   MatrixXd kalmanGain =
     optimizationParameters_.P * DVLstates.jacobianOfErrorStates.transpose() * DVLstates.measurementCovariance.inverse();

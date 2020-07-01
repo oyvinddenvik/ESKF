@@ -47,8 +47,18 @@ ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh)
   subscribePressureZ_ = nh_.subscribe<nav_msgs::Odometry>(pressureZ_topic, 1000, &ESKF_Node::pressureZCallback, this,
                                                           ros::TransportHints().tcpNoDelay(true));
 
+  ROS_INFO("Publish NIS DVL");
+  publish_DVLNIS_ = nh_.advertise<nav_msgs::Odometry>("nis_dvl",1);
+
+  ROS_INFO("Publish NIS Pressure Z");
+  publish_PressureZNIS_ = nh_.advertise<nav_msgs::Odometry>("nis_pressureZ",1);
+
+
   ROS_INFO("Publishing State");
   publishPose_ = nh_.advertise<nav_msgs::Odometry>("pose", 1);
+
+  ROS_INFO("Publishing acc, gyro biases and gravity");
+  publishAccGyrobiasandGravity_ = nh_.advertise<nav_msgs::Odometry>("BiasAndGravity",1);
 
   pubTImer_ = nh_.createTimer(ros::Duration(1.0f / publish_rate), &ESKF_Node::publishPoseState, this);
 }
@@ -56,17 +66,14 @@ ESKF_Node::ESKF_Node(const ros::NodeHandle& nh, const ros::NodeHandle& pnh)
 // IMU Subscriber
 void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
 {
-
-  
-
-  //double Ts{ 0 };
+  double Ts{ 0 };
   int imu_publish_rate{ DEFAULT_IMU_RATE };
   Vector3d raw_acceleration_measurements = Vector3d::Zero();
   Vector3d raw_gyro_measurements = Vector3d::Zero();
   Matrix3d R_acc = Matrix3d::Zero();
   Matrix3d R_gyro = Matrix3d::Zero();
 
-  //Ts = (1.0 / imu_publish_rate);
+  Ts = (1.0 / imu_publish_rate);
   raw_acceleration_measurements << imu_Message_data->linear_acceleration.x, imu_Message_data->linear_acceleration.y,
     imu_Message_data->linear_acceleration.z;
 
@@ -93,7 +100,7 @@ void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
 
   if (previousTimeStampIMU_.sec != 0)
   {
-    const double deltaIMU = (imu_Message_data->header.stamp - previousTimeStampIMU_).toSec();
+    const double deltaIMU =(imu_Message_data->header.stamp - previousTimeStampIMU_).toSec();
 
     //ROS_INFO("TimeStamps: %f",delta);
 
@@ -110,7 +117,8 @@ void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
 
     // Execution time
     auto start = std::chrono::steady_clock::now();
-    eskf_.predict(raw_acceleration_measurements, raw_gyro_measurements, deltaIMU, R_acc, R_gyro);
+    eskf_.predict(raw_acceleration_measurements, raw_gyro_measurements, Ts, R_acc, R_gyro);
+    //eskf_.bufferIMUMessages(raw_acceleration_measurements,raw_gyro_measurements,ros_timeStampNow,Ts,R_acc,R_gyro);
      
 	  auto end = std::chrono::steady_clock::now();
 
@@ -133,12 +141,8 @@ void ESKF_Node::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data)
 
     //eskf_.predict();
   }
-
   previousTimeStampIMU_ = imu_Message_data->header.stamp;
-
-  
 }
-
 // DVL subscriber
 void ESKF_Node::dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data)
 {
@@ -148,17 +152,26 @@ void ESKF_Node::dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data
   raw_dvl_measurements << dvl_Message_data->twist.twist.linear.x, dvl_Message_data->twist.twist.linear.y,
     dvl_Message_data->twist.twist.linear.z;
 
+  /*
   for (size_t i = 0; i < R_dvl.rows(); i++)
   {
     for (size_t j = 0; j < R_dvl.cols(); j++)
     {
-      R_dvl(i, j) = dvl_Message_data->twist.covariance[3 * i + j];
+      R_dvl(i, j) = dvl_Message_data->twist.covariance[(3 * i) + j];
     }
   }
+  */
 
+  R_dvl(0,0) = dvl_Message_data->twist.covariance[0];
+  R_dvl(1,1) = dvl_Message_data->twist.covariance[7];
+  R_dvl(2,2) = dvl_Message_data->twist.covariance[14];
+
+  const double ros_timeStampNow = dvl_Message_data->header.stamp.toSec() - initialIMUTimestamp_; 
   // ROS_INFO("Velocity_z: %f",dvl_Message_data->twist.twist.linear.z);
   auto start = std::chrono::steady_clock::now();
   eskf_.updateDVL(raw_dvl_measurements, R_dvl_);
+  //eskf_.bufferDVLMessages(raw_dvl_measurements,ros_timeStampNow,R_dvl);
+
   auto end = std::chrono::steady_clock::now();
 
   auto diff = end - start;
@@ -177,6 +190,18 @@ void ESKF_Node::dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data
   {
     execution_time_vector_dvl_.push_back(diff_in_ms);
   }
+
+  // Publish DVL - NIS
+  nav_msgs::Odometry odom_msg;
+  static size_t trace_id{ 0 };
+  odom_msg.header.frame_id = "/eskf_link";
+  odom_msg.header.seq = trace_id++;
+  odom_msg.header.stamp = ros::Time::now();
+  odom_msg.pose.pose.position.x = eskf_.getNISDVL();
+  //double nis_DVL_msg{eskf_.getNISDVL()};
+  //std::cout<<nis_DVL_msg<<std::endl;
+  publish_DVLNIS_.publish(odom_msg);
+
 }
 
 // PressureZ subscriber
@@ -189,9 +214,12 @@ void ESKF_Node::pressureZCallback(const nav_msgs::Odometry::ConstPtr& pressureZ_
 
   // std::cout<<RpressureZ<<std::endl;
   // const double R_pressureZ = 2.2500;
+  const double ros_timeStampNow = pressureZ_Message_data->header.stamp.toSec() - initialIMUTimestamp_; 
 
   auto start = std::chrono::steady_clock::now();
   eskf_.updatePressureZ(raw_pressure_z, R_pressureZ_);
+  //eskf_.bufferPressureZMessages(raw_pressure_z,ros_timeStampNow,R_pressureZ_);
+
   auto end = std::chrono::steady_clock::now();
 
   auto diff = end - start;
@@ -210,19 +238,36 @@ void ESKF_Node::pressureZCallback(const nav_msgs::Odometry::ConstPtr& pressureZ_
   {
     execution_time_vector_pressureZ_.push_back(diff_in_ms);
   }
+
+   // Publish Pressure Z - NIS
+  nav_msgs::Odometry odom_msg;
+  static size_t trace_id{ 0 };
+  odom_msg.header.frame_id = "/eskf_link";
+  odom_msg.header.seq = trace_id++;
+  odom_msg.header.stamp = ros::Time::now();
+  odom_msg.pose.pose.position.x = eskf_.getNISPressureZ();
+  
+  publish_PressureZNIS_.publish(odom_msg);
+
+
+
 }
 
 void ESKF_Node::publishPoseState(const ros::TimerEvent&)
 {
 
-
+  //eskf_.update();
+  //eskf_.UpdateOnlyWithPrediction();
   nav_msgs::Odometry odom_msg;
+  nav_msgs::Odometry imu_biases_and_gravity;
   static size_t trace_id{ 0 };
 
   const Vector3d& position = eskf_.getPosition();
   const Vector3d& velocity = eskf_.getVelocity();
   Quaterniond quaternion = eskf_.getQuaternion();
   const Vector3d& gravity = eskf_.getGravity();
+  const Vector3d& accbias = eskf_.getAccBias();
+  const Vector3d& gyrobias = eskf_.getGyroBias();
 
   const MatrixXd& errorCovariance = eskf_.getErrorCovariance();
 
@@ -235,6 +280,21 @@ void ESKF_Node::publishPoseState(const ros::TimerEvent&)
   Matrix<double,3,3> attitude_error_covariance;
   attitude_error_covariance.setZero();
   attitude_error_covariance = errorCovariance.block<3,3>(6,6);
+
+  imu_biases_and_gravity.header.frame_id="/eskf_link";
+  imu_biases_and_gravity.header.seq = trace_id++;
+  imu_biases_and_gravity.header.stamp = ros::Time::now();
+  imu_biases_and_gravity.pose.pose.position.x = accbias(0);
+  imu_biases_and_gravity.pose.pose.position.y = accbias(1);
+  imu_biases_and_gravity.pose.pose.position.z = accbias(2);
+  imu_biases_and_gravity.twist.twist.linear.x = gyrobias(0);
+  imu_biases_and_gravity.twist.twist.linear.y = gyrobias(1);
+  imu_biases_and_gravity.twist.twist.linear.z = gyrobias(2);
+  imu_biases_and_gravity.twist.twist.angular.x = gravity(0);
+  imu_biases_and_gravity.twist.twist.angular.y = gravity(1);
+  imu_biases_and_gravity.twist.twist.angular.z = gravity(2);
+
+  publishAccGyrobiasandGravity_.publish(imu_biases_and_gravity);
 
   odom_msg.header.frame_id = "/eskf_link";
   odom_msg.header.seq = trace_id++;
@@ -281,8 +341,6 @@ void ESKF_Node::publishPoseState(const ros::TimerEvent&)
   // ROS_INFO("StateX: %f",odom_msg.pose.pose.position.x);
   publishPose_.publish(odom_msg);
 
-  // std::cout<<pose<<std::endl;
-  // std::cout<<std::endl;
 }
 
 
@@ -541,7 +599,7 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
 
 
 
-
+  /*
   if (ros::param::has("/St_dvl"))
   {
     ros::param::get("/St_dvl", S_dvlConfig);
@@ -563,6 +621,8 @@ parametersInESKF ESKF_Node::loadParametersFromYamlFile()
     ROS_FATAL("No static transform for DVL (St_dvl) set in parameter file");
     ROS_BREAK();
   }
+
+  */
 
   if (ros::param::has("/St_inc"))
   {

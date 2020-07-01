@@ -64,11 +64,15 @@ private:
 
   // ROS publisher
   ros::Publisher publishPose_;
+  ros::Publisher publishAccGyrobiasandGravity_;
+  ros::Publisher publish_DVLNIS_;
+  ros::Publisher publish_PressureZNIS_;
 
   // Callbacks
   void imuCallback(const sensor_msgs::Imu::ConstPtr& imu_Message_data);
   void dvlCallback(const nav_msgs::Odometry::ConstPtr& dvl_Message_data);
   void publishPoseState(const ros::TimerEvent&);
+  
   void pressureZCallback(const nav_msgs::Odometry::ConstPtr& pressureZ_Message_data);
 
 

@@ -92,8 +92,30 @@ int main(int argc, char *argv[])
   }
   auto end = std::chrono::steady_clock::now();
   auto diff = end - start;
-  std::cout << "predictnominal: " << std::chrono::duration<double, std::milli>(diff).count() / 10000 << " ms"
+  std::cout << "predictnominal: " << std::chrono::duration<double, std::milli>(diff).count() << " ms"
             << std::endl;
+
+    // Execution time
+	//auto end = std::chrono::steady_clock::now();
+
+	//auto diff = end - start;
+
+	//auto diff_in_ms = std::chrono::duration <double, std::milli> (diff).count();
+
+  //std::cout<<diff_in_ms<<std::endl;
+  /*
+	if(execution_time_vector_.size() == 1000 && publish_execution_time_ == true)
+	{
+		std::cout<<"Max value: "<<maxOfVector(execution_time_vector_)<<std::endl;
+		std::cout<<"Mean: "<<meanOfVector(execution_time_vector_)<<std::endl;
+		std::cout<<"STD: "<<stanardDeviationOfVector(execution_time_vector_)<<std::endl;
+		publish_execution_time_ = false;
+	}
+	else
+	{
+		execution_time_vector_.push_back(diff_in_ms);
+	} 
+  */         
   // pressureTesting = eskf.innovationPressureZ(xnominal, P, pressureValue, RpressureZ);
   // injectionPressureTesting = eskf.updatePressureZ(xnominal, P, pressureValue, RpressureZ);
   // dvlstatetesting = eskf.innovationDVL(xnominal, P, ZdvlValues, RDVL);
